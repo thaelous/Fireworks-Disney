@@ -1,0 +1,8 @@
+{
+  "name": "Simulador de Fuegos Artificiales Mágicos - Estilo Disney",
+  "description": "Simulador interactivo de espectáculo pirotécnico nocturno estilo Disney con escenarios icónicos (Castillo, Tomorrowland, Jungle), formas mágicas (Estrellas, Corazones, Siluetas), reflejo en agua y sonido procedural.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
+
