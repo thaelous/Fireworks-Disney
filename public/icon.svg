@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#02040d"/>
+      <stop offset="50%" stop-color="#070c1e"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+
+    <!-- Gold Castle Gradient -->
+    <linearGradient id="goldGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#d97706"/>
+      <stop offset="50%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#fef08a"/>
+    </linearGradient>
+
+    <!-- Star Glow Filter -->
+    <radialGradient id="starGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="40%" stop-color="#fde047" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Firework Bursts -->
+    <radialGradient id="burstPink" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="50%" stop-color="#ec4899"/>
+      <stop offset="100%" stop-color="#ec4899" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="burstCyan" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="50%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Deep Midnight Sky Background (Rounded for maskable / standard preview) -->
+  <rect width="512" height="512" rx="104" fill="url(#bgGrad)"/>
+
+  <!-- Background Twinkling Stars (Safe Zone padded) -->
+  <circle cx="110" cy="130" r="3" fill="#ffffff" opacity="0.9"/>
+  <circle cx="150" cy="90" r="2" fill="#fde047" opacity="0.75"/>
+  <circle cx="370" cy="110" r="3" fill="#ffffff" opacity="0.9"/>
+  <circle cx="410" cy="150" r="2.5" fill="#a5f3fc" opacity="0.8"/>
+  <circle cx="90" cy="220" r="2" fill="#ffffff" opacity="0.6"/>
+  <circle cx="430" cy="230" r="2" fill="#fde047" opacity="0.6"/>
+
+  <!-- Left Cyan Firework Burst -->
+  <circle cx="140" cy="180" r="45" fill="url(#burstCyan)" opacity="0.45"/>
+  <!-- Sparks Left -->
+  <circle cx="140" cy="140" r="3" fill="#67e8f9"/>
+  <circle cx="110" cy="165" r="3" fill="#67e8f9"/>
+  <circle cx="170" cy="165" r="3" fill="#67e8f9"/>
+  <circle cx="120" cy="205" r="2.5" fill="#67e8f9"/>
+  <circle cx="160" cy="205" r="2.5" fill="#67e8f9"/>
+
+  <!-- Right Pink/Magenta Firework Burst -->
+  <circle cx="370" cy="175" r="48" fill="url(#burstPink)" opacity="0.45"/>
+  <!-- Sparks Right -->
+  <circle cx="370" cy="135" r="3" fill="#f472b6"/>
+  <circle cx="335" cy="160" r="3" fill="#f472b6"/>
+  <circle cx="405" cy="160" r="3" fill="#f472b6"/>
+  <circle cx="345" cy="205" r="2.5" fill="#f472b6"/>
+  <circle cx="395" cy="205" r="2.5" fill="#f472b6"/>
+
+  <!-- Top Center Magic Wishing Star (Disney North Star) -->
+  <circle cx="256" cy="115" r="28" fill="url(#starGlow)"/>
+  <!-- 4-Ray Cross Flare -->
+  <path d="M256 75 L259 110 L296 115 L259 120 L256 155 L253 120 L216 115 L253 110 Z" fill="#ffffff"/>
+  <circle cx="256" cy="115" r="4" fill="#ffffff"/>
+
+  <!-- Disney Fairy Tale Castle Silhouette (Centered in Safe Zone) -->
+  <g fill="url(#goldGrad)">
+    <!-- Base Walls & Gate -->
+    <path d="M165 410 L165 340 L195 340 L195 310 L215 270 L225 310 L225 330 L235 330 L235 240 L250 200 L256 165 L262 200 L277 240 L277 330 L287 330 L287 310 L297 270 L317 310 L317 340 L347 340 L347 410 Z"/>
+
+    <!-- Central Grand Gate Archway -->
+    <path d="M236 410 A20 20 0 0 1 276 410 Z" fill="#070c1e"/>
+
+    <!-- Castle Spire Flags -->
+    <polygon points="256,165 256,150 268,155 256,160" fill="#fef08a"/>
+    <polygon points="215,270 215,258 224,262 215,266" fill="#fef08a"/>
+    <polygon points="297,270 297,258 306,262 297,266" fill="#fef08a"/>
+
+    <!-- Windows Glow -->
+    <rect x="252" y="250" width="8" height="14" rx="4" fill="#ffffff" opacity="0.9"/>
+    <rect x="202" y="325" width="6" height="10" rx="3" fill="#ffffff" opacity="0.75"/>
+    <rect x="304" y="325" width="6" height="10" rx="3" fill="#ffffff" opacity="0.75"/>
+  </g>
+
+  <!-- Water Reflection Surface Line -->
+  <line x1="120" y1="410" x2="392" y2="410" stroke="#fde047" stroke-width="2" opacity="0.4"/>
+  <ellipse cx="256" cy="425" rx="90" ry="4" fill="#f59e0b" opacity="0.25"/>
+  <ellipse cx="256" cy="435" rx="55" ry="3" fill="#38bdf8" opacity="0.2"/>
+</svg>

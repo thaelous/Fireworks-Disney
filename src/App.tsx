@@ -36,6 +36,7 @@ import {
   DISNEY_PALETTES,
 } from './utils/fireworks';
 import { audioEngine } from './utils/audio';
+import { PWAInstallButton } from './components/PWAInstallButton';
 
 interface TargetIndicator {
   id: number;
@@ -208,45 +209,103 @@ export default function App() {
     });
   };
 
-  // Export as standalone single-file HTML for mobile
+  // Export as standalone single-file HTML for mobile with full PWA embedded
   const handleDownloadStandaloneHtml = () => {
+    const iconSvgRaw = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"><defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#02040d"/><stop offset="100%" stop-color="#0f172a"/></linearGradient><linearGradient id="gld" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#d97706"/><stop offset="100%" stop-color="#fef08a"/></linearGradient></defs><rect width="512" height="512" rx="100" fill="url(#bg)"/><circle cx="256" cy="115" r="24" fill="#fde047"/><path d="M256 75 L259 110 L296 115 L259 120 L256 155 L253 120 L216 115 L253 110 Z" fill="#ffffff"/><path d="M165 410 L165 340 L195 340 L195 310 L215 270 L225 310 L225 330 L235 330 L235 240 L250 200 L256 165 L262 200 L277 240 L277 330 L287 330 L287 310 L297 270 L317 310 L317 340 L347 340 L347 410 Z" fill="url(#gld)"/><circle cx="140" cy="180" r="18" fill="#38bdf8" opacity="0.8"/><circle cx="370" cy="175" r="18" fill="#f472b6" opacity="0.8"/></svg>`;
+    const iconDataUri = 'data:image/svg+xml;utf8,' + encodeURIComponent(iconSvgRaw);
+    
+    const manifestJson = {
+      id: "/",
+      name: "Disney Fireworks Mobile",
+      short_name: "FuegosDisney",
+      description: "Simulador de espectáculo de fuegos artificiales estilo Disney ultra-realista para celulares.",
+      start_url: "./",
+      scope: "./",
+      display: "standalone",
+      orientation: "portrait",
+      background_color: "#03050e",
+      theme_color: "#03050e",
+      icons: [
+        {
+          src: iconDataUri,
+          sizes: "192x192 512x512",
+          type: "image/svg+xml",
+          purpose: "any maskable"
+        }
+      ]
+    };
+    const manifestDataUri = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifestJson));
+
     const htmlContent = `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#03050e">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Disney Fireworks Mobile</title>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FuegosDisney">
+  <title>Disney Fireworks Mobile - PWA</title>
+  
+  <!-- Embedded PWA Manifest & App Icons -->
+  <link rel="manifest" href="${manifestDataUri}">
+  <link rel="icon" type="image/svg+xml" href="${iconDataUri}">
+  <link rel="apple-touch-icon" href="${iconDataUri}">
+
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; -webkit-tap-highlight-color: transparent; }
-    body, html { width: 100%; height: 100%; overflow: hidden; background: #03050e; font-family: -apple-system, system-ui, sans-serif; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: #03050e; font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #f8fafc; }
     canvas { width: 100vw; height: 100vh; display: block; }
-    .hud-top { position: absolute; top: calc(env(safe-area-inset-top, 12px) + 8px); left: 12px; right: 12px; display: flex; justify-content: space-between; pointer-events: none; z-index: 10; }
-    .hud-bottom { position: absolute; bottom: calc(env(safe-area-inset-bottom, 12px) + 8px); left: 12px; right: 12px; display: flex; justify-content: center; pointer-events: none; z-index: 10; }
-    .bar { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.18); border-radius: 20px; padding: 8px 14px; pointer-events: auto; display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
-    button { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 14px; min-height: 42px; padding: 8px 14px; font-weight: bold; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-    button:active { transform: scale(0.96); background: rgba(255,255,255,0.25); }
-    .btn-gold { background: linear-gradient(135deg, #f59e0b, #ef4444); color: #000; border: none; font-weight: 800; }
+    .hud-top { position: absolute; top: calc(env(safe-area-inset-top, 10px) + 8px); left: 10px; right: 10px; display: flex; justify-content: space-between; align-items: center; pointer-events: none; z-index: 20; }
+    .hud-bottom { position: absolute; bottom: calc(env(safe-area-inset-bottom, 10px) + 8px); left: 10px; right: 10px; display: flex; justify-content: center; pointer-events: none; z-index: 20; }
+    .bar { background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.18); border-radius: 20px; padding: 6px 12px; pointer-events: auto; display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+    button { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 14px; min-height: 40px; padding: 6px 12px; font-weight: bold; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; user-select: none; }
+    button:active { transform: scale(0.95); background: rgba(255,255,255,0.22); }
+    .btn-gold { background: linear-gradient(135deg, #fbbf24, #f43f5e); color: #020617; border: none; font-weight: 800; box-shadow: 0 4px 14px rgba(244,63,94,0.3); }
+    .btn-emerald { background: linear-gradient(135deg, #10b981, #06b6d4); color: #020617; border: none; font-weight: 800; }
+    .tag { font-size: 9px; padding: 2px 6px; border-radius: 8px; font-weight: 800; text-transform: uppercase; }
+    .install-banner { position: fixed; top: 70px; left: 12px; right: 12px; background: rgba(15, 23, 42, 0.94); border: 1px solid rgba(251, 191, 36, 0.4); border-radius: 18px; padding: 12px; z-index: 30; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.7); backdrop-filter: blur(12px); }
   </style>
 </head>
 <body>
+  <!-- Top Bar -->
   <div class="hud-top">
     <div class="bar">
-      <span style="font-weight:bold; color:#fbbf24; font-size:13px;">✨ Disney Fireworks</span>
+      <span style="font-weight:800; color:#fbbf24; font-size:13px;">🏰 Disney Fireworks</span>
+      <span id="showTag" class="tag" style="background:rgba(16,185,129,0.2); color:#6ee7b7; border:1px solid rgba(16,185,129,0.4); display:none;">SHOW</span>
     </div>
     <div class="bar">
       <button onclick="toggleSound()" id="soundBtn">🔊 Sonido</button>
+      <button onclick="showInstallModal()" id="pwaBtn" style="border-color:#fbbf24; color:#fde047;">📱 Instalar</button>
     </div>
   </div>
+
+  <!-- Bottom Bar -->
   <div class="hud-bottom">
-    <div class="bar">
+    <div class="bar" style="width: 100%; max-width: 440px; justify-content: space-around;">
       <button class="btn-gold" onclick="toggleAuto()" id="autoBtn">▶ Auto Show</button>
-      <button onclick="triggerFinale()">🎆 ¡Gran Final!</button>
-      <button onclick="cycleScenario()">🏰 Escenario</button>
+      <button onclick="triggerFinale()" style="color:#fda4af; border-color:rgba(244,63,94,0.4);">🎆 ¡Gran Final!</button>
+      <button onclick="cycleType()" id="typeBtn">✨ Forma</button>
+      <button onclick="cycleScenario()" id="scenBtn">🏰 Castillo</button>
     </div>
   </div>
+
+  <!-- PWA Install Modal / Instructions -->
+  <div id="installModal" class="install-banner">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong style="color:#fbbf24; font-size:13px;">📱 Instalar en Pantalla de Inicio (PWA)</strong>
+      <button onclick="closeInstallModal()" style="min-height:28px; padding:2px 8px; font-size:11px;">✕</button>
+    </div>
+    <p style="font-size:11px; color:#cbd5e1; line-height:1.4; margin-bottom:8px;">
+      • <strong>iOS Safari:</strong> Toca el botón <strong>Compartir ⎋</strong> abajo y pulsa <strong>"Añadir a pantalla de inicio ⊞"</strong>.<br>
+      • <strong>Android Chrome:</strong> Pulsa el botón de abajo o pulsa ⋮ y selecciona <strong>"Instalar aplicación"</strong>.
+    </p>
+    <button onclick="triggerPWAInstall()" class="btn-gold" style="width:100%; justify-content:center;">Instalar Ahora</button>
+  </div>
+
   <canvas id="c"></canvas>
+
   <script>
     const canvas = document.getElementById('c');
     const ctx = canvas.getContext('2d');
@@ -256,148 +315,359 @@ export default function App() {
       w = window.innerWidth; h = window.innerHeight;
       canvas.width = w * dpr; canvas.height = h * dpr;
       ctx.resetTransform(); ctx.scale(dpr, dpr);
+      initStars();
     }
     window.addEventListener('resize', resize);
     window.addEventListener('orientationchange', resize);
-    resize();
 
+    // Procedural Web Audio API
     let actx = null, soundOn = true;
-    function initAudio() { if(!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume(); }
-    window.toggleSound = () => { soundOn = !soundOn; document.getElementById('soundBtn').textContent = soundOn ? '🔊 Sonido' : '🔇 Mudo'; };
+    function initAudio() {
+      if(!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if(actx.state === 'suspended') actx.resume();
+    }
+    window.toggleSound = () => {
+      soundOn = !soundOn;
+      document.getElementById('soundBtn').textContent = soundOn ? '🔊 Sonido' : '🔇 Mudo';
+    };
 
-    function playLaunch(spd) {
+    function playWhistle(speed) {
       if(!actx || !soundOn) return;
       const t = actx.currentTime;
-      const o = actx.createOscillator(); const g = actx.createGain();
-      o.type = 'triangle'; o.frequency.setValueAtTime(260*spd, t); o.frequency.exponentialRampToValueAtTime(1050*spd, t+0.8);
-      g.gain.setValueAtTime(0.001, t); g.gain.exponentialRampToValueAtTime(0.12, t+0.05); g.gain.exponentialRampToValueAtTime(0.001, t+0.8);
-      o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t+0.85);
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(280 * speed, t);
+      osc.frequency.exponentialRampToValueAtTime(1100 * speed, t + 0.75);
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.exponentialRampToValueAtTime(0.14, t + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.75);
+      osc.connect(gain); gain.connect(actx.destination);
+      osc.start(t); osc.stop(t + 0.8);
     }
 
-    function playBoom() {
+    function playBoom(force) {
       if(!actx || !soundOn) return;
       const t = actx.currentTime;
-      const o = actx.createOscillator(); const g = actx.createGain();
-      o.type = 'sine'; o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(28, t+1.1);
-      g.gain.setValueAtTime(0.48, t); g.gain.exponentialRampToValueAtTime(0.001, t+1.1);
-      o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t+1.15);
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(140, t);
+      osc.frequency.exponentialRampToValueAtTime(26, t + 1.2);
+      gain.gain.setValueAtTime(0.55 * force, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+      osc.connect(gain); gain.connect(actx.destination);
+      osc.start(t); osc.stop(t + 1.25);
     }
 
-    let rockets = [], particles = [];
+    // Twinkling Starfield
     let stars = [];
     function initStars() {
       stars = [];
-      for(let i=0; i<130; i++) {
+      const count = Math.min(180, Math.floor((w * h) / 4800));
+      for(let i=0; i<count; i++) {
         stars.push({
-          x: Math.random()*w,
+          x: Math.random() * w,
           y: Math.pow(Math.random(), 1.25) * (h * 0.74),
-          r: Math.random()*0.8 + 0.6,
-          phase: Math.random()*Math.PI*2,
-          speed: Math.random()*0.02 + 0.01,
-          c: Math.random() > 0.4 ? '#ffffff' : (Math.random() > 0.5 ? '#fff4db' : '#d8eeff')
+          size: Math.random() * 0.8 + 0.6,
+          phase: Math.random() * Math.PI * 2,
+          speed: Math.random() * 0.02 + 0.01,
+          color: Math.random() > 0.4 ? '#ffffff' : (Math.random() > 0.5 ? '#fff4db' : '#d8eeff'),
+          isJewel: Math.random() > 0.92
         });
       }
     }
-    initStars();
-    const colors = ['#ffd700', '#ff2a85', '#00d2ff', '#00ff88', '#d500f9'];
-    let scenario = 0; // 0: Castle, 1: Tomorrowland, 2: Minimal
-    window.cycleScenario = () => { scenario = (scenario + 1) % 3; };
+    resize();
 
-    function launch(tx, ty) {
+    // Fireworks & Particles
+    let rockets = [], particles = [];
+    const PALETTES = [
+      ['#ffd700', '#ffb703', '#ffffff'], // Gold
+      ['#00d2ff', '#2979ff', '#80d8ff'], // Blue
+      ['#ff2a85', '#f50057', '#ff80bf'], // Rose
+      ['#00ff88', '#00e676', '#b9f6ca'], // Emerald
+      ['#e040fb', '#d500f9', '#ff4081'], // Fuchsia
+      ['#ff1744', '#ff9100', '#ffd600', '#00e676', '#00d2ff'] // Rainbow
+    ];
+
+    let currentTypeIndex = 0;
+    const FIREWORK_TYPES = ['magic_shapes', 'willow', 'chrysanthemum', 'double_core', 'ring', 'crossette'];
+    const TYPE_NAMES = ['✨ Mágico', '🌾 Sauce', '🌸 Crisan', '💥 Core', '🪐 Anillo', '🎆 Cross'];
+    window.cycleType = () => {
+      currentTypeIndex = (currentTypeIndex + 1) % FIREWORK_TYPES.length;
+      document.getElementById('typeBtn').textContent = TYPE_NAMES[currentTypeIndex];
+    };
+
+    let scenario = 0; // 0: Castle, 1: Tomorrowland, 2: Minimal
+    const SCENARIO_NAMES = ['🏰 Castillo', '🚀 Tomorrow', '🌌 Cielo'];
+    window.cycleScenario = () => {
+      scenario = (scenario + 1) % 3;
+      document.getElementById('scenBtn').textContent = SCENARIO_NAMES[scenario];
+    };
+
+    function launch(tx, ty, explicitType) {
       initAudio();
-      const sx = w*0.5 + (tx - w*0.5)*0.3; const sy = h + 10;
-      const angle = Math.atan2(ty - sy, tx - sx); const spd = Math.hypot(tx-sx, ty-sy)/36;
-      playLaunch(1.0);
-      rockets.push({ x: sx, y: sy, vx: Math.cos(angle)*spd, vy: Math.sin(angle)*spd, tx, ty, c: colors[Math.floor(Math.random()*colors.length)] });
+      const sx = w * 0.5 + (tx - w * 0.5) * 0.35;
+      const sy = h + 10;
+      const angle = Math.atan2(ty - sy, tx - sx);
+      const spd = Math.hypot(tx - sx, ty - sy) / 36;
+      playWhistle(1.0);
+      const pal = PALETTES[Math.floor(Math.random() * PALETTES.length)];
+      rockets.push({
+        x: sx, y: sy,
+        vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd,
+        tx, ty,
+        color: pal[0],
+        pal,
+        type: explicitType || FIREWORK_TYPES[currentTypeIndex],
+        trail: []
+      });
     }
 
-    function detonate(x, y, color) {
-      playBoom();
-      const count = 130;
-      for(let i=0; i<count; i++) {
-        const a = Math.random()*Math.PI*2; const spd = Math.random()*5.2 + 0.8;
-        particles.push({ x, y, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd, c: color, a: 1, d: Math.random()*0.015 + 0.011 });
+    function detonate(x, y, type, pal) {
+      playBoom(1.2);
+      const count = 140;
+
+      if(type === 'magic_shapes') {
+        const mode = Math.random();
+        if(mode < 0.4) {
+          // Mickey Silhouette (3 circles)
+          for(let i=0; i<80; i++) {
+            const a = (i / 80) * Math.PI * 2;
+            particles.push({ x, y, vx: Math.cos(a)*3.6, vy: Math.sin(a)*3.6, c: pal[0], a: 1, d: 0.014, g: 0.035 });
+          }
+          for(let i=0; i<30; i++) {
+            const a = (i / 30) * Math.PI * 2;
+            particles.push({ x, y, vx: -2.6 + Math.cos(a)*2.0, vy: -2.6 + Math.sin(a)*2.0, c: pal[1] || pal[0], a: 1, d: 0.014, g: 0.035 });
+            particles.push({ x, y, vx: 2.6 + Math.cos(a)*2.0, vy: -2.6 + Math.sin(a)*2.0, c: pal[1] || pal[0], a: 1, d: 0.014, g: 0.035 });
+          }
+        } else if(mode < 0.7) {
+          // 5-Point Fairy Star
+          for(let i=0; i<count; i++) {
+            const a = (i / count) * Math.PI * 2;
+            const r = (Math.cos(5 * a) * 0.4 + 0.8) * 4.6;
+            particles.push({ x, y, vx: Math.cos(a - Math.PI/2)*r, vy: Math.sin(a - Math.PI/2)*r, c: pal[0], a: 1, d: 0.013, g: 0.035 });
+          }
+        } else {
+          // Heart
+          for(let i=0; i<count; i++) {
+            const t = (i / count) * Math.PI * 2;
+            const hx = 16 * Math.pow(Math.sin(t), 3);
+            const hy = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+            particles.push({ x, y, vx: hx * 0.32, vy: hy * 0.32, c: '#ff2a85', a: 1, d: 0.013, g: 0.033 });
+          }
+        }
+      } else if(type === 'willow') {
+        // Golden heavy willow rain with long gravity trails
+        for(let i=0; i<count; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const spd = Math.random() * 4.5 + 0.5;
+          particles.push({ x, y, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd, c: '#ffd13b', a: 1, d: 0.0075, g: 0.065, trail: [] });
+        }
+      } else if(type === 'ring') {
+        // Saturn ring
+        for(let i=0; i<count; i++) {
+          const a = (i / count) * Math.PI * 2;
+          const spd = 5.2 + (Math.random() * 0.3 - 0.15);
+          particles.push({ x, y, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd*0.85, c: pal[0], a: 1, d: 0.014, g: 0.035 });
+        }
+      } else {
+        // Spherical Chrysanthemum / Double Core
+        for(let i=0; i<count; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const spd = Math.random() * 5.2 + 0.8;
+          particles.push({ x, y, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd, c: pal[i % pal.length], a: 1, d: 0.013, g: 0.042 });
+        }
       }
     }
 
-    window.addEventListener('pointerdown', e => launch(e.clientX, e.clientY));
+    // Touch Interactive Launch
+    window.addEventListener('pointerdown', (e) => {
+      if(e.clientY < 70 || e.clientY > h - 70) return;
+      launch(e.clientX, e.clientY);
+    });
+
+    // Auto Show
     let auto = false, autoTimer = null;
     window.toggleAuto = () => {
       auto = !auto;
-      document.getElementById('autoBtn').textContent = auto ? '⏸ Pausar' : '▶ Auto Show';
-      if(auto) autoTimer = setInterval(() => launch(w*0.15 + Math.random()*w*0.7, h*0.14 + Math.random()*h*0.35), 1800);
-      else clearInterval(autoTimer);
+      document.getElementById('autoBtn').textContent = auto ? '⏸ Pausa' : '▶ Auto Show';
+      document.getElementById('showTag').style.display = auto ? 'inline-block' : 'none';
+      if(auto) {
+        autoTimer = setInterval(() => {
+          const rx = w * 0.15 + Math.random() * w * 0.7;
+          const ry = h * 0.14 + Math.random() * h * 0.32;
+          const rType = FIREWORK_TYPES[Math.floor(Math.random() * FIREWORK_TYPES.length)];
+          launch(rx, ry, rType);
+        }, 1800);
+      } else {
+        clearInterval(autoTimer);
+      }
     };
 
+    // Grand Finale
     window.triggerFinale = () => {
       initAudio();
-      for(let i=0; i<16; i++) setTimeout(() => launch(w*0.1 + Math.random()*w*0.8, h*0.1 + Math.random()*h*0.4), i*150);
+      for(let i=0; i<18; i++) {
+        setTimeout(() => {
+          const rx = w * 0.1 + Math.random() * w * 0.8;
+          const ry = h * 0.12 + Math.random() * h * 0.35;
+          const rType = FIREWORK_TYPES[Math.floor(Math.random() * FIREWORK_TYPES.length)];
+          launch(rx, ry, rType);
+        }, i * 140);
+      }
     };
 
+    // PWA Install Prompt Handlers
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      document.getElementById('pwaBtn').style.display = 'flex';
+    });
+
+    window.showInstallModal = () => {
+      document.getElementById('installModal').style.display = 'block';
+    };
+    window.closeInstallModal = () => {
+      document.getElementById('installModal').style.display = 'none';
+    };
+    window.triggerPWAInstall = async () => {
+      if(deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if(outcome === 'accepted') closeInstallModal();
+      } else {
+        alert('En Safari (iOS): Toca Compartir ⎋ y "Añadir a pantalla de inicio".');
+      }
+    };
+
+    // Main 60 FPS Render Loop
     function loop() {
-      ctx.fillStyle = 'rgba(3, 5, 14, 0.20)';
+      // 1. Sky & Stars
+      ctx.fillStyle = 'rgba(3, 5, 14, 0.22)';
       ctx.fillRect(0, 0, w, h);
 
-      // Twinkling Starfield in background with smooth opacity fluctuation
       for(let i=0; i<stars.length; i++) {
         const s = stars[i];
         s.phase += s.speed;
-        const alpha = 0.12 + 0.65 * (Math.sin(s.phase)*0.5 + 0.5);
+        const alpha = 0.12 + 0.65 * (Math.sin(s.phase) * 0.5 + 0.5);
         ctx.save();
         ctx.globalAlpha = alpha;
-        ctx.fillStyle = s.c;
+        ctx.fillStyle = s.color;
         ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r*0.5, 0, Math.PI*2);
+        ctx.arc(s.x, s.y, s.size * 0.5, 0, Math.PI * 2);
         ctx.fill();
+        if(s.isJewel && alpha > 0.45) {
+          ctx.globalAlpha = alpha * 0.25;
+          ctx.beginPath(); ctx.arc(s.x, s.y, s.size * 2.2, 0, Math.PI * 2); ctx.fill();
+        }
         ctx.restore();
       }
-      
-      const wy = h * 0.80; const cx = w * 0.5;
-      const s = Math.min(1.0, w / 400);
 
-      // Scenery
+      const wy = h * 0.81;
+      const cx = w * 0.5;
+      const scale = Math.min(1.0, Math.max(0.65, w / 420));
+
+      // 2. Disney Themed Scenery Silhouettes
       if(scenario === 0) {
-        // Castle
+        // Grand Fairy Tale Castle
         ctx.fillStyle = '#020409';
         ctx.beginPath();
-        ctx.moveTo(cx - 160*s, wy); ctx.lineTo(cx - 130*s, wy - 60*s);
-        ctx.lineTo(cx - 80*s, wy - 110*s); ctx.lineTo(cx, wy - 220*s);
-        ctx.lineTo(cx + 80*s, wy - 110*s); ctx.lineTo(cx + 130*s, wy - 60*s);
-        ctx.lineTo(cx + 160*s, wy);
+        ctx.moveTo(cx - 160*scale, wy);
+        ctx.lineTo(cx - 130*scale, wy - 55*scale);
+        ctx.lineTo(cx - 75*scale, wy - 110*scale);
+        ctx.lineTo(cx - 75*scale, wy - 150*scale); // Left high spire
+        ctx.lineTo(cx - 40*scale, wy - 110*scale);
+        ctx.lineTo(cx, wy - 220*scale); // Tallest Main Spire
+        ctx.lineTo(cx + 40*scale, wy - 110*scale);
+        ctx.lineTo(cx + 75*scale, wy - 150*scale); // Right high spire
+        ctx.lineTo(cx + 75*scale, wy - 110*scale);
+        ctx.lineTo(cx + 130*scale, wy - 55*scale);
+        ctx.lineTo(cx + 160*scale, wy);
+        ctx.closePath();
         ctx.fill();
+
+        // Warm Glowing Windows
+        ctx.fillStyle = '#ffd166';
+        ctx.globalAlpha = 0.8;
+        ctx.fillRect(cx - 2*scale, wy - 130*scale, 4*scale, 8*scale);
+        ctx.fillRect(cx - 75*scale, wy - 90*scale, 3*scale, 6*scale);
+        ctx.fillRect(cx + 72*scale, wy - 90*scale, 3*scale, 6*scale);
+        ctx.globalAlpha = 1;
+
+        // Castle Flag
+        ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(cx, wy - 220*scale); ctx.lineTo(cx, wy - 232*scale); ctx.lineTo(cx + 8*scale, wy - 228*scale); ctx.lineTo(cx, wy - 224*scale); ctx.stroke();
       } else if(scenario === 1) {
-        // Tomorrowland
-        ctx.fillStyle = '#020409';
+        // Tomorrowland Neon Spire
+        ctx.fillStyle = '#02040a';
         ctx.beginPath();
-        ctx.moveTo(0, wy); ctx.lineTo(cx - 80*s, wy - 130*s); ctx.lineTo(cx, wy - 210*s);
-        ctx.lineTo(cx + 90*s, wy - 90*s); ctx.lineTo(w, wy);
+        ctx.moveTo(0, wy);
+        ctx.lineTo(cx - 90*scale, wy - 90*scale);
+        ctx.lineTo(cx, wy - 210*scale);
+        ctx.lineTo(cx + 90*scale, wy - 90*scale);
+        ctx.lineTo(w, wy);
+        ctx.closePath();
         ctx.fill();
       }
 
-      // Lagoon
-      ctx.fillStyle = '#020308';
+      // 3. Lagoon Surface
+      ctx.fillStyle = '#010307';
       ctx.fillRect(0, wy, w, h - wy);
+      ctx.strokeStyle = 'rgba(255, 235, 179, 0.25)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, wy); ctx.lineTo(w, wy); ctx.stroke();
 
+      // 4. Update & Draw Fireworks with Additive Glow
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
+
+      // Rockets
       for(let i=rockets.length-1; i>=0; i--) {
         const r = rockets[i];
         r.x += r.vx; r.y += r.vy;
-        ctx.fillStyle = r.c; ctx.beginPath(); ctx.arc(r.x, r.y, 3, 0, Math.PI*2); ctx.fill();
-        if(r.y <= r.ty) { detonate(r.x, r.y, r.c); rockets.splice(i, 1); }
+        ctx.fillStyle = r.color;
+        ctx.beginPath(); ctx.arc(r.x, r.y, 3, 0, Math.PI*2); ctx.fill();
+
+        // Rocket Trail
+        r.trail.unshift({ x: r.x, y: r.y, a: 1 });
+        if(r.trail.length > 8) r.trail.pop();
+        for(let t=0; t<r.trail.length; t++) {
+          ctx.globalAlpha = (1 - t/r.trail.length) * 0.6;
+          ctx.fillStyle = '#ffecb3';
+          ctx.beginPath(); ctx.arc(r.trail[t].x, r.trail[t].y, 2, 0, Math.PI*2); ctx.fill();
+        }
+
+        if(r.y <= r.ty) {
+          detonate(r.x, r.y, r.type, r.pal);
+          rockets.splice(i, 1);
+        }
       }
-      if(particles.length > 500) particles.splice(0, particles.length - 500);
+
+      // Particles (Sparks)
+      if(particles.length > 550) particles.splice(0, particles.length - 550);
       for(let i=particles.length-1; i>=0; i--) {
         const p = particles[i];
-        p.vx *= 0.965; p.vy *= 0.965; p.vy += 0.045; p.x += p.vx; p.y += p.vy; p.a -= p.d;
-        ctx.globalAlpha = Math.max(0, p.a); ctx.fillStyle = p.c;
-        ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI*2); ctx.fill();
+        p.vx *= 0.965; p.vy *= 0.965;
+        p.vy += p.g || 0.04;
+        p.x += p.vx; p.y += p.vy;
+        p.a -= p.d;
+
+        ctx.globalAlpha = Math.max(0, p.a);
+        ctx.fillStyle = p.c;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 2.2, 0, Math.PI*2); ctx.fill();
+
+        // Water reflection
         if(p.y < wy) {
-          ctx.globalAlpha = Math.max(0, p.a*0.28);
-          ctx.beginPath(); ctx.ellipse(p.x, wy + (wy - p.y)*0.75, 4, 1.5, 0, 0, Math.PI*2); ctx.fill();
+          ctx.globalAlpha = Math.max(0, p.a * 0.25);
+          ctx.beginPath();
+          ctx.ellipse(p.x, wy + (wy - p.y) * 0.72, 3.5, 1.2, 0, 0, Math.PI*2);
+          ctx.fill();
         }
+
         if(p.a <= 0) particles.splice(i, 1);
       }
+
       ctx.restore();
       requestAnimationFrame(loop);
     }
@@ -410,7 +680,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'fuegos_disney_movil.html';
+    a.download = 'fuegos_disney_pwa_movil.html';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -586,6 +856,9 @@ export default function App() {
             >
               <Star className={`w-4 h-4 ${config.starrySky !== false ? 'fill-amber-300' : ''}`} />
             </button>
+
+            {/* In-App PWA Install Button */}
+            <PWAInstallButton compact />
 
             {/* Options Menu Toggle */}
             <button
@@ -782,6 +1055,11 @@ export default function App() {
                 <Volume2 className="w-3.5 h-3.5" />
                 <span>Audio</span>
               </button>
+            </div>
+
+            {/* In-App PWA Install Banner */}
+            <div className="px-4 pt-3 pb-0">
+              <PWAInstallButton />
             </div>
 
             {/* Tab Contents */}

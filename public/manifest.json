@@ -1,0 +1,27 @@
+{
+  "id": "/",
+  "name": "Disney Fireworks Mobile",
+  "short_name": "FuegosDisney",
+  "description": "Simulador de espectáculo de fuegos artificiales estilo Disney ultra-realista para celulares.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#03050e",
+  "theme_color": "#03050e",
+  "categories": ["entertainment", "games"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
