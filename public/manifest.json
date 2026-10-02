@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Disney Fireworks Mobile",
-  "short_name": "FuegosDisney",
-  "description": "Simulador de espectáculo de fuegos artificiales estilo Disney ultra-realista para celulares.",
+  "name": "Simulador Familiar",
+  "short_name": "Fuegos",
+  "description": "Simulador de espectáculo de fuegos artificiales estilo Disney ultra-realista para celulares con nombres familiares luminosos.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

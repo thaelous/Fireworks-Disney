@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#03050e">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Fuegos">
+  <title>Simulador Familiar - Fuegos Artificiales Estilo Disney</title>
+
+  <!-- Embedded PWA Manifest & App Icons (100% Autocontenido Data URI) -->
+  <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22id%22%3A%22.%2F%22%2C%22name%22%3A%22Simulador%20Familiar%22%2C%22short_name%22%3A%22Fuegos%22%2C%22description%22%3A%22Simulador%20de%20espect%C3%A1culo%20de%20fuegos%20artificiales%20estilo%20Disney%20ultra-realista%20para%20tel%C3%A9fonos%20celulares%20con%20nombres%20familiares%20luminosos.%22%2C%22start_url%22%3A%22.%2F%22%2C%22scope%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22orientation%22%3A%22portrait%22%2C%22background_color%22%3A%22%2303050e%22%2C%22theme_color%22%3A%22%2303050e%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%3Butf8%2C%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20512%20512%27%3E%3Crect%20width%3D%27512%27%20height%3D%27512%27%20rx%3D%27100%27%20fill%3D%27%2303050e%27%2F%3E%3Ccircle%20cx%3D%27256%27%20cy%3D%27120%27%20r%3D%2728%27%20fill%3D%27%23fbbf24%27%2F%3E%3Cpath%20d%3D%27M170%20420%20L170%20340%20L200%20340%20L220%20270%20L235%20330%20L256%20180%20L277%20330%20L292%20270%20L312%20340%20L342%20340%20L342%20420%20Z%27%20fill%3D%27%23fbbf24%27%2F%3E%3C%2Fsvg%3E%22%2C%22sizes%22%3A%22192x192%20512x512%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%2C%22purpose%22%3A%22any%20maskable%22%7D%5D%7D">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%2303050e'/><circle cx='256' cy='120' r='28' fill='%23fbbf24'/><path d='M170 420 L170 340 L200 340 L220 270 L235 330 L256 180 L277 330 L292 270 L312 340 L342 340 L342 420 Z' fill='%23fbbf24'/></svg>">
+  <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%2303050e'/><circle cx='256' cy='120' r='28' fill='%23fbbf24'/><path d='M170 420 L170 340 L200 340 L220 270 L235 330 L256 180 L277 330 L292 270 L312 340 L342 340 L342 420 Z' fill='%23fbbf24'/></svg>">
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; -webkit-tap-highlight-color: transparent; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: #03050e; font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #f8fafc; }
+    canvas { width: 100vw; height: 100vh; display: block; }
+    .hud-top { position: absolute; top: calc(env(safe-area-inset-top, 10px) + 8px); left: 10px; right: 10px; display: flex; justify-content: space-between; align-items: center; pointer-events: none; z-index: 20; }
+    .hud-bottom { position: absolute; bottom: calc(env(safe-area-inset-bottom, 10px) + 8px); left: 10px; right: 10px; display: flex; justify-content: center; pointer-events: none; z-index: 20; }
+    .bar { background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.18); border-radius: 20px; padding: 6px 12px; pointer-events: auto; display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+    button { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 14px; min-height: 40px; padding: 6px 12px; font-weight: bold; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; user-select: none; }
+    button:active { transform: scale(0.95); background: rgba(255,255,255,0.22); }
+    .btn-gold { background: linear-gradient(135deg, #fbbf24, #f43f5e); color: #020617; border: none; font-weight: 800; box-shadow: 0 4px 14px rgba(244,63,94,0.3); }
+    .btn-emerald { background: linear-gradient(135deg, #10b981, #06b6d4); color: #020617; border: none; font-weight: 800; }
+    .tag { font-size: 9px; padding: 2px 6px; border-radius: 8px; font-weight: 800; text-transform: uppercase; }
+    .install-banner { position: fixed; top: 70px; left: 12px; right: 12px; background: rgba(15, 23, 42, 0.94); border: 1px solid rgba(251, 191, 36, 0.4); border-radius: 18px; padding: 12px; z-index: 30; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.7); backdrop-filter: blur(12px); }
+  </style>
+</head>
+<body>
+  <!-- Top Bar -->
+  <div class="hud-top">
+    <div class="bar">
+      <span style="font-weight:800; color:#fbbf24; font-size:13px;">🏰 Simulador Familiar</span>
+      <span id="showTag" class="tag" style="background:rgba(16,185,129,0.2); color:#6ee7b7; border:1px solid rgba(16,185,129,0.4); display:inline-block;">SHOW ACTIVO</span>
+    </div>
+    <div class="bar">
+      <button onclick="advanceDayNight()" id="dnBtn" title="Ciclo Día-Noche (cada 2 min)">🌗 Noche</button>
+      <button onclick="toggleSound()" id="soundBtn">🔊 Sonido</button>
+      <button onclick="showInstallModal()" id="pwaBtn" style="border-color:#fbbf24; color:#fde047;">📱 Instalar</button>
+    </div>
+  </div>
+
+  <!-- Bottom Bar -->
+  <div class="hud-bottom">
+    <div class="bar" style="width: 100%; max-width: 500px; justify-content: space-around;">
+      <button class="btn-gold" onclick="toggleAuto()" id="autoBtn">⏸ Pausa</button>
+      <button onclick="triggerFinale()" style="color:#fda4af; border-color:rgba(244,63,94,0.4);">🎆 Lanzar Gran Final</button>
+      <button onclick="cycleColor()" id="colorBtn" style="color:#67e8f9; border-color:rgba(6,182,212,0.4);">🌈 Arcoíris</button>
+      <button onclick="cycleType()" id="typeBtn">✨ Forma</button>
+      <button onclick="cycleScenario()" id="scenBtn">🏰 Castillo</button>
+    </div>
+  </div>
+
+  <!-- PWA Install Modal / Instructions -->
+  <div id="installModal" class="install-banner">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong style="color:#fbbf24; font-size:13px;">📱 Instalar Simulador Familiar (PWA)</strong>
+      <button onclick="closeInstallModal()" style="min-height:28px; padding:2px 8px; font-size:11px;">✕</button>
+    </div>
+    <p style="font-size:11px; color:#cbd5e1; line-height:1.4; margin-bottom:8px;">
+      • <strong>iOS Safari:</strong> Toca el botón <strong>Compartir ⎋</strong> abajo y pulsa <strong>"Añadir a pantalla de inicio ⊞"</strong>.<br>
+      • <strong>Android Chrome:</strong> Pulsa el botón de abajo o pulsa ⋮ y selecciona <strong>"Instalar aplicación"</strong>.
+    </p>
+    <button onclick="triggerPWAInstall()" class="btn-gold" style="width:100%; justify-content:center;">Instalar Ahora</button>
+  </div>
+
+  <canvas id="c"></canvas>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const willowCanvas = document.createElement('canvas');
+    const willowCtx = willowCanvas.getContext('2d');
+    let w, h;
+
+    function resize() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = window.innerWidth || 360; h = window.innerHeight || 640;
+      if (w <= 0) w = 360;
+      if (h <= 0) h = 640;
+      canvas.width = Math.max(1, Math.round(w * dpr)); canvas.height = Math.max(1, Math.round(h * dpr));
+      ctx.resetTransform(); ctx.scale(dpr, dpr);
+      willowCanvas.width = Math.max(1, Math.round(w * dpr)); willowCanvas.height = Math.max(1, Math.round(h * dpr));
+      willowCtx.resetTransform(); willowCtx.scale(dpr, dpr);
+      initStars();
+    }
+    window.addEventListener('resize', resize);
+    window.addEventListener('orientationchange', resize);
+
+    // Procedural Web Audio API
+    let actx = null, soundOn = true;
+    function initAudio() {
+      if(!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if(actx.state === 'suspended') actx.resume();
+    }
+    window.toggleSound = () => {
+      soundOn = !soundOn;
+      document.getElementById('soundBtn').textContent = soundOn ? '🔊 Sonido' : '🔇 Mudo';
+    };
+
+    // Whistle Sound
+    function playWhistle(speed) {
+      if(!actx || !soundOn) return;
+      const t = actx.currentTime;
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(280 * speed, t);
+      osc.frequency.exponentialRampToValueAtTime(1100 * speed, t + 0.75);
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.exponentialRampToValueAtTime(0.14, t + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.75);
+      osc.connect(gain); gain.connect(actx.destination);
+      osc.start(t); osc.stop(t + 0.8);
+    }
+
+    // Explosion Sound & Chisporroteos Agudos (Crackling)
+    function playBoom(force) {
+      if(!actx || !soundOn) return;
+      const t = actx.currentTime;
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(140, t);
+      osc.frequency.exponentialRampToValueAtTime(26, t + 1.2);
+      gain.gain.setValueAtTime(0.55 * force, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+      osc.connect(gain); gain.connect(actx.destination);
+      osc.start(t); osc.stop(t + 1.25);
+
+      // Chisporroteo agudo (crackling) procedural
+      playCrackling(6);
+    }
+
+    function playCrackling(count = 8) {
+      if(!actx || !soundOn) return;
+      const t = actx.currentTime;
+      for(let i=0; i<count; i++) {
+        const osc = actx.createOscillator();
+        const gain = actx.createGain();
+        const delay = Math.random() * 0.45;
+        osc.type = Math.random() > 0.5 ? 'square' : 'sawtooth';
+        osc.frequency.setValueAtTime(1800 + Math.random() * 3200, t + delay);
+        gain.gain.setValueAtTime(0.001, t + delay);
+        gain.gain.linearRampToValueAtTime(0.035, t + delay + 0.005);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + delay + 0.035);
+        osc.connect(gain); gain.connect(actx.destination);
+        osc.start(t + delay); osc.stop(t + delay + 0.04);
+      }
+    }
+
+    // Sonido Especial de Revelación de Nombres Familiares
+    function playFamilyWordSound(word) {
+      if(!actx || !soundOn) return;
+      playBoom(1.6);
+      const t = actx.currentTime;
+      const chord = [261.63, 329.63, 392.0, 523.25, 659.25];
+      chord.forEach((freq, i) => {
+        const osc = actx.createOscillator();
+        const gain = actx.createGain();
+        osc.type = i % 2 === 0 ? 'sine' : 'triangle';
+        osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.exponentialRampToValueAtTime(0.06, t + 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 3.2);
+        osc.connect(gain); gain.connect(actx.destination);
+        osc.start(t); osc.stop(t + 3.4);
+      });
+
+      // Fairy dust chimes
+      [1046, 1318, 1567, 2093, 2637].forEach((f, idx) => {
+        const osc = actx.createOscillator();
+        const gain = actx.createGain();
+        const nt = t + 0.08 + idx * 0.08;
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(f, nt);
+        gain.gain.setValueAtTime(0.001, nt);
+        gain.gain.exponentialRampToValueAtTime(0.05, nt + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, nt + 1.6);
+        osc.connect(gain); gain.connect(actx.destination);
+        osc.start(nt); osc.stop(nt + 1.7);
+      });
+    }
+
+    // Ciclo Día-Noche (2 minutos durante el Auto Show)
+    const DAY_NIGHT_PHASES = [
+      { name: 'Noche', bg: 'rgba(3, 5, 14, 0.22)', stars: 1.0, deep: false },
+      { name: 'Noche OLED', bg: 'rgba(0, 1, 3, 0.28)', stars: 1.35, deep: true },
+      { name: 'Amanecer', bg: 'rgba(10, 20, 42, 0.22)', stars: 0.45, deep: false },
+      { name: 'Crepúsculo', bg: 'rgba(18, 10, 36, 0.22)', stars: 0.75, deep: false }
+    ];
+    let currentPhaseIndex = 0;
+    let dayNightTimer = null;
+
+    window.advanceDayNight = () => {
+      currentPhaseIndex = (currentPhaseIndex + 1) % DAY_NIGHT_PHASES.length;
+      const phase = DAY_NIGHT_PHASES[currentPhaseIndex];
+      document.getElementById('dnBtn').textContent = '🌗 ' + phase.name;
+    };
+
+    // Palabras Familiares Requeridas
+    const FAMILY_NAMES = ['ALTAIR', 'mamá', 'papá', 'abuela', 'abuelo', 'tía', 'Sofi'];
+    let currentWordIndex = 0;
+
+    window.cycleFamilyWord = () => {
+      currentWordIndex = (currentWordIndex + 1) % FAMILY_NAMES.length;
+      const word = FAMILY_NAMES[currentWordIndex];
+      launch(w * 0.5, h * 0.28, 'family_word', word);
+    };
+
+    // Text Rasterizer Infallible con Canvas Oculto (600x200, bold 80px, step=4)
+    const cachedWordPts = {};
+    function getWordLetterPoints(palabraSeleccionada) {
+      const cleanWord = (palabraSeleccionada || 'ALTAIR').trim();
+      if (cachedWordPts[cleanWord] && cachedWordPts[cleanWord].length > 0) return cachedWordPts[cleanWord];
+
+      const offCanvas = document.createElement('canvas');
+      offCanvas.width = 600;
+      offCanvas.height = 200;
+      const offCtx = offCanvas.getContext('2d');
+      offCtx.font = 'bold 80px sans-serif';
+      offCtx.fillStyle = 'white';
+      offCtx.textAlign = 'center';
+      offCtx.textBaseline = 'middle';
+      offCtx.fillText(cleanWord, 300, 100);
+
+      // Lee los píxeles con getImageData para extraer las coordenadas (x, y) donde hay texto
+      const imgData = offCtx.getImageData(0, 0, 600, 200);
+      const pixels = imgData.data;
+      const points = [];
+      for (let y = 0; y < 200; y += 4) { // Salto de 4 para optimizar rendimiento
+        for (let x = 0; x < 600; x += 4) {
+          const index = (y * 600 + x) * 4;
+          if (pixels[index + 3] > 128) { // Si el pixel es opaco
+            points.push({ x: x - 300, y: y - 100 }); // Centrado
+          }
+        }
+      }
+
+      // Salvaguarda
+      if (points.length < 15) {
+        for (let i = 0; i < cleanWord.length; i++) {
+          const charOffset = (i - cleanWord.length / 2 + 0.5) * 50;
+          for (let gy = -30; gy <= 30; gy += 8) {
+            points.push({ x: charOffset, y: gy });
+            points.push({ x: charOffset + 16, y: gy });
+          }
+          for (let gx = 0; gx <= 16; gx += 4) {
+            points.push({ x: charOffset + gx, y: -30 });
+            points.push({ x: charOffset + gx, y: 0 });
+            points.push({ x: charOffset + gx, y: 30 });
+          }
+        }
+      }
+
+      cachedWordPts[cleanWord] = points;
+      return points;
+    }
+
+    // Twinkling Starfield
+    let stars = [];
+    function initStars() {
+      stars = [];
+      const count = Math.min(180, Math.floor((w * h) / 4800));
+      for(let i=0; i<count; i++) {
+        stars.push({
+          x: Math.random() * w,
+          y: Math.pow(Math.random(), 1.25) * (h * 0.74),
+          size: Math.random() * 0.8 + 0.6,
+          phase: Math.random() * Math.PI * 2,
+          speed: Math.random() * 0.02 + 0.01,
+          color: Math.random() > 0.4 ? '#ffffff' : (Math.random() > 0.5 ? '#fff4db' : '#d8eeff'),
+          isJewel: Math.random() > 0.92
+        });
+      }
+    }
+
+    // Color Palettes (Por defecto en Arcoíris dinámico)
+    let rainbowHue = 0;
+    function getRainbowPalette() {
+      rainbowHue = (rainbowHue + 42) % 360;
+      return [
+        'hsl(' + rainbowHue + ', 100%, 65%)',
+        'hsl(' + ((rainbowHue + 60) % 360) + ', 100%, 65%)',
+        'hsl(' + ((rainbowHue + 120) % 360) + ', 100%, 65%)',
+        '#ffffff'
+      ];
+    }
+
+    const PALETTE_MODES = [
+      { name: '🌈 Arcoíris', get: getRainbowPalette },
+      { name: '👑 Oro', get: () => ['#ffd700', '#f59e0b', '#fbbf24', '#fffbeb'] },
+      { name: '💎 Zafiro', get: () => ['#38bdf8', '#0284c7', '#bae6fd', '#ffffff'] },
+      { name: '🌹 Rosa', get: () => ['#f43f5e', '#fb7185', '#be123c', '#ffe4e6'] },
+      { name: '🔮 Amatista', get: () => ['#a855f7', '#c084fc', '#7e22ce', '#f3e8ff'] },
+      { name: '🍃 Esmeralda', get: () => ['#10b981', '#34d399', '#059669', '#d1fae5'] }
+    ];
+    let currentPaletteIndex = 0; // Inicia en 0 (Arcoíris)
+
+    window.cycleColor = () => {
+      currentPaletteIndex = (currentPaletteIndex + 1) % PALETTE_MODES.length;
+      document.getElementById('colorBtn').textContent = PALETTE_MODES[currentPaletteIndex].name;
+    };
+
+    let currentTypeIndex = 0;
+    const FIREWORK_TYPES = ['magic_shapes', 'willow', 'chrysanthemum', 'double_core', 'ring'];
+    const TYPE_NAMES = ['✨ Mágico', '🌾 Sauce', '🌸 Crisan', '💥 Core', '🪐 Anillo'];
+    window.cycleType = () => {
+      currentTypeIndex = (currentTypeIndex + 1) % FIREWORK_TYPES.length;
+      document.getElementById('typeBtn').textContent = TYPE_NAMES[currentTypeIndex];
+    };
+
+    let scenario = 0; // 0: Castle, 1: Tomorrowland, 2: Minimal
+    const SCENARIO_NAMES = ['🏰 Castillo', '🚀 Tomorrow', '🌌 Cielo'];
+    window.cycleScenario = () => {
+      scenario = (scenario + 1) % 3;
+      document.getElementById('scenBtn').textContent = SCENARIO_NAMES[scenario];
+    };
+
+    let rockets = [];
+    let particles = [];
+    let smoke = [];
+    let constellationParticles = [];
+    let constellationEndTime = 0;
+    let isFinaleRunning = false;
+
+    function spawnFinalWordConstellation(cx, cy, targetWord) {
+      playFamilyWordSound();
+      const pts = getWordLetterPoints(targetWord);
+      const scale = Math.min(1.0, (w * 0.88) / 480);
+      const targetCenterX = w * 0.5;
+      const targetCenterY = h * 0.26;
+      const now = Date.now();
+
+      constellationParticles = [];
+      constellationEndTime = now + 5000; // Exactamente 5 segundos fija
+
+      for (let i = 0; i < pts.length; i++) {
+        const pt = pts[i];
+        const destX = targetCenterX + pt.x * scale;
+        const destY = targetCenterY + pt.y * scale;
+        const isGold = (i % 3 === 0);
+        constellationParticles.push({
+          x: cx + (Math.random() * 24 - 12),
+          y: cy + (Math.random() * 24 - 12),
+          destX: destX,
+          destY: destY,
+          color: isGold ? '#ffd700' : (i % 2 === 0 ? '#ffffff' : '#ffe484'),
+          size: Math.random() * 0.8 + 2.2,
+          alpha: 1.0,
+          phase: Math.random() * Math.PI * 2,
+          twinkleSpeed: Math.random() * 0.08 + 0.04,
+          spawnTime: now
+        });
+      }
+
+      // Halo de destellos dorados alrededor de la palabra
+      for (let i = 0; i < 28; i++) {
+        const a = (i / 28) * Math.PI * 2;
+        const spd = Math.random() * 1.8 + 3.8;
+        particles.push({
+          x: cx, y: cy,
+          vx: Math.cos(a) * spd, vy: Math.sin(a) * spd,
+          c: '#ffea79', a: 1.0, d: 0.016, drag: 0.95, g: 0.035, flicker: true
+        });
+      }
+    }
+
+    function launch(tx, ty, explicitType, word) {
+      initAudio();
+      const sx = w * 0.5 + (tx - w * 0.5) * 0.35;
+      const sy = h + 10;
+      const angle = Math.atan2(ty - sy, tx - sx);
+      const spd = Math.hypot(tx - sx, ty - sy) / 36;
+      playWhistle(1.0);
+      const pal = PALETTE_MODES[currentPaletteIndex].get();
+      rockets.push({
+        x: sx, y: sy,
+        vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd,
+        tx, ty,
+        color: pal[0],
+        pal,
+        type: explicitType || FIREWORK_TYPES[currentTypeIndex],
+        word: word || FAMILY_NAMES[currentWordIndex],
+        trail: []
+      });
+    }
+
+    function detonate(x, y, type, pal, word) {
+      const currentPhase = DAY_NIGHT_PHASES[currentPhaseIndex];
+      const count = 140;
+
+      // Volumetric smoke
+      smoke.push({
+        x, y,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: -0.15 - Math.random() * 0.2,
+        r: 16,
+        maxR: 44,
+        a: 0.18,
+        d: 0.002
+      });
+
+      if (type === 'family_word') {
+        const targetWord = word || FAMILY_NAMES[Math.floor(Math.random() * FAMILY_NAMES.length)];
+        spawnFinalWordConstellation(x, y, targetWord);
+        return;
+      }
+
+      playBoom(1.2);
+
+      if(type === 'magic_shapes') {
+        const mode = Math.random();
+        if(mode < 0.36) {
+          // Mickey Silhouette (Cabeza central + dos orejas superiores)
+          for(let i=0; i<70; i++) {
+            const a = (i / 70) * Math.PI * 2;
+            particles.push({ x, y, vx: Math.cos(a)*3.6, vy: Math.sin(a)*3.6, c: pal[0], a: 1, d: 0.014, g: 0.032, flicker: true });
+          }
+          for(let i=0; i<25; i++) {
+            const a = (i / 25) * Math.PI * 2;
+            particles.push({ x, y, vx: -2.6 + Math.cos(a)*2.0, vy: -2.6 + Math.sin(a)*2.0, c: pal[1] || pal[0], a: 1, d: 0.014, g: 0.032 });
+            particles.push({ x, y, vx: 2.6 + Math.cos(a)*2.0, vy: -2.6 + Math.sin(a)*2.0, c: pal[1] || pal[0], a: 1, d: 0.014, g: 0.032 });
+          }
+        } else if(mode < 0.68) {
+          // 5-Point Fairy Star
+          for(let i=0; i<count; i++) {
+            const a = (i / count) * Math.PI * 2;
+            const r = (Math.cos(5 * a) * 0.4 + 0.8) * 4.6;
+            particles.push({ x, y, vx: Math.cos(a - Math.PI/2)*r, vy: Math.sin(a - Math.PI/2)*r, c: pal[0], a: 1, d: 0.013, g: 0.032, flicker: true });
+          }
+        } else {
+          // Corazón Mágico
+          for(let i=0; i<count; i++) {
+            const t = (i / count) * Math.PI * 2;
+            const hx = 16 * Math.pow(Math.sin(t), 3);
+            const hy = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+            particles.push({ x, y, vx: hx * 0.32, vy: hy * 0.32, c: '#ff2a85', a: 1, d: 0.013, g: 0.030, flicker: true });
+          }
+        }
+      } else if(type === 'double_core') {
+        // Doble Núcleo: Núcleo interno rápido + corona expansiva
+        for(let i=0; i<45; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const spd = Math.random() * 2.2 + 0.6;
+          particles.push({ x, y, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd, c: '#ffffff', a: 1, d: 0.018, g: 0.03 });
+        }
+        for(let i=0; i<count; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const spd = Math.random() * 2.2 + 4.2;
+          particles.push({ x, y, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd, c: pal[0], a: 1, d: 0.012, g: 0.038, flicker: true });
+        }
+      } else if(type === 'willow') {
+        // Sauce Llorón con buffer acumulativo y caída por gravedad
+        for(let i=0; i<count*1.2; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const spd = Math.random() * 4.2 + 0.8;
+          particles.push({
+            x, y, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd * 0.7 - 1.2,
+            c: '#ffd13b', a: 1, d: 0.0036, g: 0.062,
+            isWillow: true, size: Math.random() * 1.2 + 1.2
+          });
+        }
+      } else if(type === 'ring') {
+        // Anillo de Saturno elíptico inclinado
+        for(let i=0; i<count; i++) {
+          const a = (i / count) * Math.PI * 2;
+          const spd = 5.2 + (Math.random() * 0.3 - 0.15);
+          particles.push({ x, y, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd*0.85, c: pal[0], a: 1, d: 0.014, g: 0.035 });
+        }
+      } else {
+        // Crisantemos / Peonías
+        for(let i=0; i<count; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const spd = Math.random() * 5.2 + 0.8;
+          particles.push({ x, y, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd, c: pal[i % pal.length], a: 1, d: 0.013, g: 0.042, flicker: true });
+        }
+      }
+    }
+
+    // Touch Interactive Launch
+    window.addEventListener('pointerdown', (e) => {
+      if(e.clientY < 70 || e.clientY > h - 70) return;
+      launch(e.clientX, e.clientY);
+    });
+
+    // Auto Show con Ciclo Día-Noche cada 2 minutos
+    let auto = false, autoTimer = null;
+    window.toggleAuto = () => {
+      auto = !auto;
+      document.getElementById('autoBtn').textContent = auto ? '⏸ Pausa' : '▶ Auto Show';
+      document.getElementById('showTag').style.display = auto ? 'inline-block' : 'none';
+      if(auto) {
+        autoTimer = setInterval(() => {
+          const rx = w * 0.15 + Math.random() * w * 0.7;
+          const ry = h * 0.14 + Math.random() * h * 0.32;
+          const rType = FIREWORK_TYPES[Math.floor(Math.random() * FIREWORK_TYPES.length)];
+          launch(rx, ry, rType);
+        }, 1800);
+
+        // Ciclo Día-Noche automático cada 2 minutos (120,000 ms)
+        dayNightTimer = setInterval(advanceDayNight, 120000);
+      } else {
+        clearInterval(autoTimer);
+        clearInterval(dayNightTimer);
+      }
+    };
+
+    // Gran Final: Secuencia masiva + cielo limpio + pausa dramática + cohete central con palabra aleatoria durante 5s
+    window.triggerFinale = () => {
+      if (isFinaleRunning) return;
+      isFinaleRunning = true;
+      initAudio();
+
+      // Pausar auto show durante el Gran Final para evitar interferencias
+      const wasAuto = auto;
+      if (autoTimer) clearInterval(autoTimer);
+
+      // 1. Secuencia intensa y masiva de fuegos artificiales de estilo Disney
+      const salvoCount = 20;
+      for(let i=0; i<salvoCount; i++) {
+        setTimeout(() => {
+          const rx = w * 0.1 + Math.random() * w * 0.8;
+          const ry = h * 0.12 + Math.random() * h * 0.35;
+          const rType = FIREWORK_TYPES[Math.floor(Math.random() * FIREWORK_TYPES.length)];
+          launch(rx, ry, rType);
+        }, i * 140);
+      }
+
+      // 2. AL TERMINAR la lluvia de cohetes, el cielo hace una pausa dramática y se limpia.
+      const barrageEndTime = salvoCount * 140 + 900;
+      setTimeout(() => {
+        smoke = [];
+        particles = [];
+        rockets = [];
+        if (willowCanvas.width > 0 && willowCanvas.height > 0) {
+          willowCtx.clearRect(0, 0, willowCanvas.width, willowCanvas.height);
+        }
+      }, barrageEndTime);
+
+      // 3. Inmediatamente después (1 segundo exacto de silencio dramático tras limpiarse el cielo):
+      // Explota un último cohete especial en el centro de la pantalla que despliega y deja fijas en el cielo, brillando como estrellas estáticas, una palabra elegida al azar
+      const dramaticPauseDelay = barrageEndTime + 1000;
+      setTimeout(() => {
+        const randomWord = FAMILY_NAMES[Math.floor(Math.random() * FAMILY_NAMES.length)];
+        launch(w * 0.5, h * 0.28, 'family_word', randomWord);
+
+        // Restaurar estado de auto show al terminar los 5 segundos de la palabra
+        setTimeout(() => {
+          isFinaleRunning = false;
+          if (wasAuto && auto) {
+            autoTimer = setInterval(() => {
+              const rx = w * 0.15 + Math.random() * w * 0.7;
+              const ry = h * 0.14 + Math.random() * h * 0.32;
+              const rType = FIREWORK_TYPES[Math.floor(Math.random() * FIREWORK_TYPES.length)];
+              launch(rx, ry, rType);
+            }, 1800);
+          }
+        }, 5500);
+      }, dramaticPauseDelay);
+    };
+
+    // PWA Install Handlers
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      document.getElementById('pwaBtn').style.display = 'flex';
+    });
+
+    window.showInstallModal = () => {
+      document.getElementById('installModal').style.display = 'block';
+    };
+    window.closeInstallModal = () => {
+      document.getElementById('installModal').style.display = 'none';
+    };
+    window.triggerPWAInstall = async () => {
+      if(deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if(outcome === 'accepted') closeInstallModal();
+      } else {
+        alert('En Safari (iOS): Toca Compartir ⎋ y "Añadir a pantalla de inicio".');
+      }
+    };
+
+    // 60 FPS Render Loop
+    function loop() {
+      const currentPhase = DAY_NIGHT_PHASES[currentPhaseIndex];
+      ctx.fillStyle = currentPhase.bg;
+      ctx.fillRect(0, 0, w, h);
+
+      // Buffer Sauce Llorón
+      willowCtx.save();
+      willowCtx.globalCompositeOperation = 'destination-out';
+      willowCtx.fillStyle = 'rgba(0, 0, 0, 0.016)';
+      willowCtx.fillRect(0, 0, w, h);
+      willowCtx.restore();
+
+      // Stars
+      for(let i=0; i<stars.length; i++) {
+        const s = stars[i];
+        s.phase += s.speed;
+        const alpha = (0.12 + 0.65 * (Math.sin(s.phase) * 0.5 + 0.5)) * currentPhase.stars;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = s.color;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Willow buffer composition
+      if (willowCanvas && willowCanvas.width > 0 && willowCanvas.height > 0 && w > 0 && h > 0) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.drawImage(willowCanvas, 0, 0, w, h);
+        if(currentPhase.deep) {
+          ctx.globalAlpha = 0.44;
+          ctx.drawImage(willowCanvas, 0, 0, w, h);
+        }
+        ctx.restore();
+      }
+
+      // Smoke
+      ctx.save();
+      for(let i=smoke.length-1; i>=0; i--) {
+        const sm = smoke[i];
+        sm.x += sm.vx; sm.y += sm.vy;
+        if(sm.r < sm.maxR) sm.r += (sm.maxR - sm.r) * 0.012;
+        sm.a -= sm.d;
+        const grad = ctx.createRadialGradient(sm.x, sm.y, 0, sm.x, sm.y, sm.r);
+        grad.addColorStop(0, 'rgba(168, 178, 196, ' + Math.min(0.2, sm.a) + ')');
+        grad.addColorStop(1, 'rgba(100, 112, 130, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(sm.x, sm.y, sm.r, 0, Math.PI*2); ctx.fill();
+        if(sm.a <= 0) smoke.splice(i, 1);
+      }
+      ctx.restore();
+
+      const wy = h * 0.81;
+      const cx = w * 0.5;
+
+      // Scenery
+      if(scenario === 0) {
+        // Disney Castle
+        const scale = Math.min(w / 380, h / 720);
+        ctx.fillStyle = '#02050d';
+        ctx.beginPath();
+        ctx.moveTo(cx - 160*scale, wy);
+        ctx.lineTo(cx - 130*scale, wy - 55*scale);
+        ctx.lineTo(cx - 75*scale, wy - 110*scale);
+        ctx.lineTo(cx - 75*scale, wy - 150*scale);
+        ctx.lineTo(cx - 40*scale, wy - 110*scale);
+        ctx.lineTo(cx, wy - 220*scale);
+        ctx.lineTo(cx + 40*scale, wy - 110*scale);
+        ctx.lineTo(cx + 75*scale, wy - 150*scale);
+        ctx.lineTo(cx + 75*scale, wy - 110*scale);
+        ctx.lineTo(cx + 130*scale, wy - 55*scale);
+        ctx.lineTo(cx + 160*scale, wy);
+        ctx.closePath();
+        ctx.fill();
+
+        // Warm Glowing Windows
+        ctx.fillStyle = '#ffd166';
+        ctx.fillRect(cx - 2*scale, wy - 130*scale, 4*scale, 8*scale);
+        ctx.fillRect(cx - 75*scale, wy - 90*scale, 3*scale, 6*scale);
+        ctx.fillRect(cx + 72*scale, wy - 90*scale, 3*scale, 6*scale);
+      } else if(scenario === 1) {
+        // Tomorrowland Futurista con Rayos Láser
+        const scale = Math.min(w / 380, h / 720);
+        ctx.fillStyle = '#02040a';
+        ctx.beginPath();
+        ctx.moveTo(0, wy);
+        ctx.lineTo(cx - 90*scale, wy - 90*scale);
+        ctx.lineTo(cx, wy - 210*scale);
+        ctx.lineTo(cx + 90*scale, wy - 90*scale);
+        ctx.lineTo(w, wy);
+        ctx.closePath();
+        ctx.fill();
+
+        // Rayos Láser Futuristas Cruzando el Cielo
+        const time = Date.now() * 0.0018;
+        const laser1 = -Math.PI * 0.5 + Math.sin(time) * 0.45;
+        const laser2 = -Math.PI * 0.5 + Math.cos(time * 0.75) * 0.52;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.lineWidth = 2.2;
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.75)';
+        ctx.beginPath();
+        ctx.moveTo(cx, wy - 210*scale);
+        ctx.lineTo(cx + Math.cos(laser1)*w*1.4, (wy - 210*scale) + Math.sin(laser1)*h*1.4);
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(244, 63, 94, 0.65)';
+        ctx.beginPath();
+        ctx.moveTo(cx, wy - 210*scale);
+        ctx.lineTo(cx + Math.cos(laser2)*w*1.4, (wy - 210*scale) + Math.sin(laser2)*h*1.4);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Lagoon
+      ctx.fillStyle = currentPhase.deep ? '#000103' : '#010307';
+      ctx.fillRect(0, wy, w, h - wy);
+      ctx.strokeStyle = 'rgba(255, 235, 179, 0.22)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, wy); ctx.lineTo(w, wy); ctx.stroke();
+
+      // Lagoon reflection
+      if (willowCanvas && willowCanvas.width > 0 && willowCanvas.height > 0 && w > 0 && h > 0) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.28;
+        ctx.translate(0, wy * 1.95);
+        ctx.scale(1, -0.6);
+        ctx.drawImage(willowCanvas, 0, 0, w, h);
+        ctx.restore();
+      }
+
+      // Fireworks with Additive Glow
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+
+      // Rockets
+      for(let i=rockets.length-1; i>=0; i--) {
+        const r = rockets[i];
+        r.x += r.vx; r.y += r.vy;
+        r.vy += 0.08;
+        r.trail.push({ x: r.x, y: r.y });
+        if(r.trail.length > 9) r.trail.shift();
+
+        ctx.strokeStyle = r.color;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        for(let j=0; j<r.trail.length; j++) {
+          if(j === 0) ctx.moveTo(r.trail[j].x, r.trail[j].y);
+          else ctx.lineTo(r.trail[j].x, r.trail[j].y);
+        }
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(r.x, r.y, 2.5, 0, Math.PI*2); ctx.fill();
+
+        if(r.vy >= -0.2 || (r.y <= r.ty)) {
+          detonate(r.x, r.y, r.type, r.pal, r.word);
+          rockets.splice(i, 1);
+        }
+      }
+
+      // Particles normales
+      for(let i=particles.length-1; i>=0; i--) {
+        const p = particles[i];
+        p.x += p.vx; p.y += p.vy;
+        p.vx *= (p.drag || 0.98);
+        p.vy = p.vy * (p.drag || 0.98) + (p.g || 0.04);
+        p.a -= p.d;
+        if (p.a <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+
+        if(p.isWillow) {
+          willowCtx.save();
+          willowCtx.globalCompositeOperation = 'lighter';
+          willowCtx.strokeStyle = '#ffe484';
+          willowCtx.lineWidth = p.size || 1.8;
+          willowCtx.globalAlpha = Math.max(0, p.a * 0.7);
+          willowCtx.beginPath();
+          willowCtx.moveTo(p.x - p.vx, p.y - p.vy);
+          willowCtx.lineTo(p.x, p.y);
+          willowCtx.stroke();
+          willowCtx.restore();
+        } else {
+          ctx.save();
+          const flick = p.flicker && Math.random() > 0.8 ? 0.4 : 1.0;
+          ctx.globalAlpha = Math.max(0, p.a * flick);
+          ctx.fillStyle = p.c;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size || 1.8, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        if(p.a <= 0) particles.splice(i, 1);
+      }
+
+      // RENDERIZADO DE LA CONSTELACIÓN ESTÁTICA DIRECTAMENTE EN EL LIENZO PRINCIPAL
+      if (constellationParticles.length > 0) {
+        const now = Date.now();
+        const remaining = constellationEndTime - now;
+
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+
+        for (let i = constellationParticles.length - 1; i >= 0; i--) {
+          const p = constellationParticles[i];
+          const timeSinceSpawn = now - p.spawnTime;
+
+          // Primeros 280ms: las chispas viajan suavemente desde la explosión hasta la coordenada exacta
+          if (timeSinceSpawn < 280) {
+            p.x += (p.destX - p.x) * 0.22;
+            p.y += (p.destY - p.y) * 0.22;
+          } else {
+            // Se fijan estáticas como estrellas
+            p.x = p.destX;
+            p.y = p.destY;
+          }
+
+          p.phase += p.twinkleSpeed;
+
+          // Durante los 5 segundos (remaining >= 0): titilan suavemente
+          if (remaining >= 0) {
+            p.alpha = 0.85 + Math.sin(p.phase) * 0.15;
+          } else {
+            // Tras los 5 segundos, se desvanecen por completo suavemente
+            p.alpha -= 0.02;
+            if (p.alpha <= 0) {
+              constellationParticles.splice(i, 1);
+              continue;
+            }
+          }
+
+          // Dibujar punto de luz estelar
+          ctx.globalAlpha = p.alpha;
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Destello en cruz de constelación
+          if (p.color === '#ffffff' && p.alpha > 0.65) {
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 0.75;
+            ctx.beginPath();
+            ctx.moveTo(p.x - 3.5, p.y);
+            ctx.lineTo(p.x + 3.5, p.y);
+            ctx.moveTo(p.x, p.y - 3.5);
+            ctx.lineTo(p.x, p.y + 3.5);
+            ctx.stroke();
+          }
+        }
+
+        ctx.restore();
+      }
+
+      ctx.restore();
+      requestAnimationFrame(loop);
+    }
+
+    // Configuración por defecto obligatoria al cargar:
+    // 1. Modo Espectáculo Automático inicia por defecto
+    // 2. Colores de pirotecnia configurados por defecto en Arcoíris
+    resize();
+    toggleAuto();
+    setTimeout(() => { launch(w * 0.5, h * 0.28, 'magic_shapes'); }, 300);
+
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

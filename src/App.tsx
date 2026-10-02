@@ -27,6 +27,10 @@ import {
   Timer,
   ChevronUp,
   Star,
+  Wind,
+  Cloud,
+  Sun,
+  Users,
 } from 'lucide-react';
 import {
   FireworksEngine,
@@ -34,6 +38,9 @@ import {
   FireworkType,
   DisneyScenario,
   DISNEY_PALETTES,
+  FAMILY_NAMES,
+  FamilyName,
+  DAY_NIGHT_PHASES,
 } from './utils/fireworks';
 import { audioEngine } from './utils/audio';
 import { PWAInstallButton } from './components/PWAInstallButton';
@@ -53,7 +60,7 @@ export default function App() {
   const [config, setConfig] = useState<FireworkConfig>({
     type: 'magic_shapes',
     scenario: 'castle',
-    colorScheme: 'gold',
+    colorScheme: 'rainbow',
     customColor: '#ff2a85',
     particleCount: 160, // Optimized for mobile GPUs
     explosionForce: 1.2,
@@ -65,18 +72,27 @@ export default function App() {
     bpm: 120,
     starrySky: true,
     starIntensity: 1.0,
+    willowPersistence: 0.985,
+    willowGlow: 1.25,
+    cinematicSmoke: true,
+    smokeDensity: 1.0,
+    deepNightMode: false,
+    signatureWord: 'ALTAIR',
+    dayNightCycle: true,
   });
 
   // UI State
-  const [isAutoShow, setIsAutoShow] = useState(false);
+  const [isAutoShow, setIsAutoShow] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(0.85);
   const [showMenu, setShowMenu] = useState(false);
   const [cinemaMode, setCinemaMode] = useState(false);
-  const [menuTab, setMenuTab] = useState<'scenarios' | 'types' | 'physics' | 'colors' | 'audio'>('scenarios');
+  const [menuTab, setMenuTab] = useState<'scenarios' | 'types' | 'family' | 'physics' | 'colors' | 'audio'>('scenarios');
   const [stats, setStats] = useState({ particles: 0, rockets: 0 });
   const [targets, setTargets] = useState<TargetIndicator[]>([]);
   const [currentBeat, setCurrentBeat] = useState(0);
+  const [dayNightPhaseName, setDayNightPhaseName] = useState<string>('Noche Estelar');
+  const [selectedWord, setSelectedWord] = useState<string>('ALTAIR');
 
   // Initialize Canvas & Engine
   useEffect(() => {
@@ -86,6 +102,7 @@ export default function App() {
     const engine = new FireworksEngine(canvas, config);
     engineRef.current = engine;
     engine.start();
+    engine.toggleAutoShow(true);
 
     engine.setStatsCallback((currentStats) => {
       setStats(currentStats);
@@ -95,6 +112,16 @@ export default function App() {
       setCurrentBeat(beat);
     });
 
+    engine.setSkyThemeCallback((theme, starIntensity, phaseName) => {
+      setConfig((prev) => ({
+        ...prev,
+        skyTheme: theme,
+        deepNightMode: theme === 'deep_night',
+        starIntensity,
+      }));
+      setDayNightPhaseName(phaseName);
+    });
+
     const handleResize = () => {
       engine.resize();
     };
@@ -102,9 +129,20 @@ export default function App() {
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', handleResize);
 
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && canvas) {
+      resizeObserver = new ResizeObserver(() => {
+        engine.resize();
+      });
+      resizeObserver.observe(canvas);
+    }
+
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleResize);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
       engine.destroy();
     };
   }, []);
@@ -181,6 +219,32 @@ export default function App() {
     }
   };
 
+  // Cohete Especial Firma "ALTAIR" / Nombres Familiares
+  const handleAltairSignature = () => {
+    audioEngine.init();
+    if (engineRef.current) {
+      engineRef.current.triggerFamilyWord(selectedWord);
+    }
+  };
+
+  // Lanzar Cohete Especial con Nombre Familiar
+  const handleFamilyWordLaunch = (word?: string) => {
+    audioEngine.init();
+    const target = word || selectedWord;
+    setSelectedWord(target);
+    setConfig((prev) => ({ ...prev, signatureWord: target }));
+    if (engineRef.current) {
+      engineRef.current.triggerFamilyWord(target);
+    }
+  };
+
+  // Avanzar Fase Ciclo Día-Noche
+  const handleAdvanceDayNight = () => {
+    if (engineRef.current) {
+      engineRef.current.advanceDayNightCycle();
+    }
+  };
+
   // Golden Rain trigger
   const handleGoldenRain = () => {
     audioEngine.init();
@@ -206,11 +270,37 @@ export default function App() {
       bpm: 120,
       starrySky: true,
       starIntensity: 1.0,
+      willowPersistence: 0.985,
+      willowGlow: 1.25,
+      cinematicSmoke: true,
+      smokeDensity: 1.0,
+      deepNightMode: false,
+      signatureWord: 'Altair',
+      dayNightCycle: true,
     });
   };
 
   // Export as standalone single-file HTML for mobile with full PWA embedded
-  const handleDownloadStandaloneHtml = () => {
+  const handleDownloadStandaloneHtml = async () => {
+    try {
+      const res = await fetch('/fuegos.html');
+      if (res.ok) {
+        const text = await res.text();
+        const blob = new Blob([text], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'simulador_fuegos_familiar_pwa.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        return;
+      }
+    } catch {
+      // Fallback to inline generated template below
+    }
+
     const iconSvgRaw = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"><defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#02040d"/><stop offset="100%" stop-color="#0f172a"/></linearGradient><linearGradient id="gld" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#d97706"/><stop offset="100%" stop-color="#fef08a"/></linearGradient></defs><rect width="512" height="512" rx="100" fill="url(#bg)"/><circle cx="256" cy="115" r="24" fill="#fde047"/><path d="M256 75 L259 110 L296 115 L259 120 L256 155 L253 120 L216 115 L253 110 Z" fill="#ffffff"/><path d="M165 410 L165 340 L195 340 L195 310 L215 270 L225 310 L225 330 L235 330 L235 240 L250 200 L256 165 L262 200 L277 240 L277 330 L287 330 L287 310 L297 270 L317 310 L317 340 L347 340 L347 410 Z" fill="url(#gld)"/><circle cx="140" cy="180" r="18" fill="#38bdf8" opacity="0.8"/><circle cx="370" cy="175" r="18" fill="#f472b6" opacity="0.8"/></svg>`;
     const iconDataUri = 'data:image/svg+xml;utf8,' + encodeURIComponent(iconSvgRaw);
     
@@ -276,6 +366,7 @@ export default function App() {
       <span id="showTag" class="tag" style="background:rgba(16,185,129,0.2); color:#6ee7b7; border:1px solid rgba(16,185,129,0.4); display:none;">SHOW</span>
     </div>
     <div class="bar">
+      <button onclick="toggleDeepNight()" id="deepBtn">🌙 Noche</button>
       <button onclick="toggleSound()" id="soundBtn">🔊 Sonido</button>
       <button onclick="showInstallModal()" id="pwaBtn" style="border-color:#fbbf24; color:#fde047;">📱 Instalar</button>
     </div>
@@ -309,12 +400,18 @@ export default function App() {
   <script>
     const canvas = document.getElementById('c');
     const ctx = canvas.getContext('2d');
+    const willowCanvas = document.createElement('canvas');
+    const willowCtx = willowCanvas.getContext('2d');
     let w, h;
     function resize() {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      w = window.innerWidth; h = window.innerHeight;
-      canvas.width = w * dpr; canvas.height = h * dpr;
+      w = window.innerWidth || 360; h = window.innerHeight || 640;
+      if (w <= 0) w = 360;
+      if (h <= 0) h = 640;
+      canvas.width = Math.max(1, Math.round(w * dpr)); canvas.height = Math.max(1, Math.round(h * dpr));
       ctx.resetTransform(); ctx.scale(dpr, dpr);
+      willowCanvas.width = Math.max(1, Math.round(w * dpr)); willowCanvas.height = Math.max(1, Math.round(h * dpr));
+      willowCtx.resetTransform(); willowCtx.scale(dpr, dpr);
       initStars();
     }
     window.addEventListener('resize', resize);
@@ -329,6 +426,13 @@ export default function App() {
     window.toggleSound = () => {
       soundOn = !soundOn;
       document.getElementById('soundBtn').textContent = soundOn ? '🔊 Sonido' : '🔇 Mudo';
+    };
+
+    let deepNight = false;
+    window.toggleDeepNight = () => {
+      deepNight = !deepNight;
+      document.getElementById('deepBtn').textContent = deepNight ? '🌑 Profundo' : '🌙 Noche';
+      document.getElementById('deepBtn').style.borderColor = deepNight ? '#818cf8' : 'rgba(255,255,255,0.2)';
     };
 
     function playWhistle(speed) {
@@ -380,7 +484,7 @@ export default function App() {
     resize();
 
     // Fireworks & Particles
-    let rockets = [], particles = [];
+    let rockets = [], particles = [], smoke = [];
     const PALETTES = [
       ['#ffd700', '#ffb703', '#ffffff'], // Gold
       ['#00d2ff', '#2979ff', '#80d8ff'], // Blue
@@ -428,6 +532,22 @@ export default function App() {
       playBoom(1.2);
       const count = 140;
 
+      // Volumetric post-explosion pyrotechnic smoke cloud
+      for(let i=0; i<12; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const spd = Math.random() * 1.4 + 0.3;
+        smoke.push({
+          x: x + Math.cos(a) * (Math.random() * 12),
+          y: y + Math.sin(a) * (Math.random() * 12),
+          vx: Math.cos(a) * spd,
+          vy: Math.sin(a) * spd - (Math.random() * 0.25 + 0.05),
+          r: Math.random() * 6 + 7,
+          maxR: Math.random() * 20 + 20,
+          a: Math.random() * 0.05 + 0.14,
+          d: Math.random() * 0.0026 + 0.0018
+        });
+      }
+
       if(type === 'magic_shapes') {
         const mode = Math.random();
         if(mode < 0.4) {
@@ -458,11 +578,23 @@ export default function App() {
           }
         }
       } else if(type === 'willow') {
-        // Golden heavy willow rain with long gravity trails
-        for(let i=0; i<count; i++) {
+        // Lluvia de Sauce Llorón dorada para buffer acumulativo
+        const willowColors = ['#ffd13b', '#ffb703', '#fff3b0', '#ffe066', '#ffa200'];
+        const willowCount = Math.floor(count * 1.3);
+        for(let i=0; i<willowCount; i++) {
           const a = Math.random() * Math.PI * 2;
-          const spd = Math.random() * 4.5 + 0.5;
-          particles.push({ x, y, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd, c: '#ffd13b', a: 1, d: 0.0075, g: 0.065, trail: [] });
+          const spd = Math.random() * 4.6 + 0.8;
+          particles.push({
+            x, y, px: x, py: y,
+            vx: Math.cos(a)*spd,
+            vy: Math.sin(a)*spd * 0.7 - 1.5,
+            c: willowColors[Math.floor(Math.random() * willowColors.length)],
+            a: 1,
+            d: 0.0036, // Persiste más de 270 frames en buffer acumulativo
+            g: 0.062,
+            isWillow: true,
+            size: Math.random() * 1.2 + 1.2
+          });
         }
       } else if(type === 'ring') {
         // Saturn ring
@@ -545,8 +677,15 @@ export default function App() {
     // Main 60 FPS Render Loop
     function loop() {
       // 1. Sky & Stars
-      ctx.fillStyle = 'rgba(3, 5, 14, 0.22)';
+      ctx.fillStyle = deepNight ? 'rgba(0, 1, 3, 0.28)' : 'rgba(3, 5, 14, 0.22)';
       ctx.fillRect(0, 0, w, h);
+
+      // Buffer Acumulativo de Sauce Llorón: Desvanecimiento ultra-lento que retiene el 98.4% de la luz por frame
+      willowCtx.save();
+      willowCtx.globalCompositeOperation = 'destination-out';
+      willowCtx.fillStyle = 'rgba(0, 0, 0, 0.016)';
+      willowCtx.fillRect(0, 0, w, h);
+      willowCtx.restore();
 
       for(let i=0; i<stars.length; i++) {
         const s = stars[i];
@@ -564,6 +703,40 @@ export default function App() {
         }
         ctx.restore();
       }
+
+      // Draw Cumulative Willow Buffer onto main sky
+      if (willowCanvas && willowCanvas.width > 0 && willowCanvas.height > 0 && w > 0 && h > 0) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.drawImage(willowCanvas, 0, 0, w, h);
+        ctx.globalAlpha = deepNight ? 0.44 : 0.28;
+        ctx.drawImage(willowCanvas, 0, 0, w, h);
+        ctx.restore();
+      }
+
+      // Capa de Humo Grisáceo Cinemático Sutil
+      if(smoke.length > 220) smoke.splice(0, smoke.length - 220);
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-over';
+      for(let i=smoke.length-1; i>=0; i--) {
+        const sm = smoke[i];
+        sm.x += sm.vx; sm.y += sm.vy;
+        sm.vx *= 0.985; sm.vy *= 0.985;
+        sm.vy -= 0.006;
+        if(sm.r < sm.maxR) sm.r += (sm.maxR - sm.r) * 0.012;
+        sm.a -= sm.d;
+
+        const grad = ctx.createRadialGradient(sm.x, sm.y, 0, sm.x, sm.y, sm.r);
+        const aVal = Math.min(0.22, sm.a);
+        grad.addColorStop(0, 'rgba(168, 178, 196, ' + aVal + ')');
+        grad.addColorStop(0.5, 'rgba(138, 148, 168, ' + (aVal * 0.52) + ')');
+        grad.addColorStop(1, 'rgba(100, 112, 130, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(sm.x, sm.y, sm.r, 0, Math.PI*2); ctx.fill();
+
+        if(sm.a <= 0) smoke.splice(i, 1);
+      }
+      ctx.restore();
 
       const wy = h * 0.81;
       const cx = w * 0.5;
@@ -613,10 +786,21 @@ export default function App() {
       }
 
       // 3. Lagoon Surface
-      ctx.fillStyle = '#010307';
+      ctx.fillStyle = deepNight ? '#000103' : '#010307';
       ctx.fillRect(0, wy, w, h - wy);
-      ctx.strokeStyle = 'rgba(255, 235, 179, 0.25)'; ctx.lineWidth = 1;
+      ctx.strokeStyle = deepNight ? 'rgba(255, 235, 179, 0.16)' : 'rgba(255, 235, 179, 0.25)'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(0, wy); ctx.lineTo(w, wy); ctx.stroke();
+
+      // Lagoon reflection of cumulative buffer
+      if (willowCanvas && willowCanvas.width > 0 && willowCanvas.height > 0 && w > 0 && h > 0) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.28;
+        ctx.translate(0, wy * 1.95);
+        ctx.scale(1, -0.6);
+        ctx.drawImage(willowCanvas, 0, 0, w, h);
+        ctx.restore();
+      }
 
       // 4. Update & Draw Fireworks with Additive Glow
       ctx.save();
@@ -638,6 +822,20 @@ export default function App() {
           ctx.beginPath(); ctx.arc(r.trail[t].x, r.trail[t].y, 2, 0, Math.PI*2); ctx.fill();
         }
 
+        // Estela de humo grisáceo sutil del cohete
+        if(Math.random() > 0.32) {
+          smoke.push({
+            x: r.x + (Math.random()*4-2),
+            y: r.y + (Math.random()*4-2),
+            vx: r.vx * 0.08 + (Math.random()*0.2 - 0.1),
+            vy: r.vy * 0.08 - (Math.random()*0.15 + 0.05),
+            r: Math.random()*2.5 + 2.2,
+            maxR: Math.random()*8 + 8,
+            a: Math.random()*0.04 + 0.10,
+            d: Math.random()*0.0035 + 0.0024
+          });
+        }
+
         if(r.y <= r.ty) {
           detonate(r.x, r.y, r.type, r.pal);
           rockets.splice(i, 1);
@@ -645,28 +843,69 @@ export default function App() {
       }
 
       // Particles (Sparks)
-      if(particles.length > 550) particles.splice(0, particles.length - 550);
+      if(particles.length > 700) particles.splice(0, particles.length - 700);
+      willowCtx.save();
+      willowCtx.globalCompositeOperation = 'lighter';
+
       for(let i=particles.length-1; i>=0; i--) {
         const p = particles[i];
-        p.vx *= 0.965; p.vy *= 0.965;
+        p.px = p.x;
+        p.py = p.y;
+        p.vx *= p.isWillow ? 0.968 : 0.965;
+        p.vy *= p.isWillow ? 0.968 : 0.965;
         p.vy += p.g || 0.04;
         p.x += p.vx; p.y += p.vy;
         p.a -= p.d;
 
-        ctx.globalAlpha = Math.max(0, p.a);
-        ctx.fillStyle = p.c;
-        ctx.beginPath(); ctx.arc(p.x, p.y, 2.2, 0, Math.PI*2); ctx.fill();
+        if (p.isWillow) {
+          // Estampar trazo en buffer acumulativo con halo radiante y núcleo incandescente
+          willowCtx.beginPath();
+          willowCtx.moveTo(p.px, p.py);
+          willowCtx.lineTo(p.x, p.y);
+          willowCtx.strokeStyle = p.c;
+          willowCtx.lineWidth = p.size * 3.2;
+          willowCtx.globalAlpha = p.a * 0.38;
+          willowCtx.stroke();
+
+          willowCtx.beginPath();
+          willowCtx.moveTo(p.px, p.py);
+          willowCtx.lineTo(p.x, p.y);
+          willowCtx.strokeStyle = '#ffe484';
+          willowCtx.lineWidth = p.size * 1.5;
+          willowCtx.globalAlpha = p.a * 0.8;
+          willowCtx.stroke();
+
+          willowCtx.beginPath();
+          willowCtx.moveTo(p.px, p.py);
+          willowCtx.lineTo(p.x, p.y);
+          willowCtx.strokeStyle = '#ffffff';
+          willowCtx.lineWidth = 0.85;
+          willowCtx.globalAlpha = p.a * 0.98;
+          willowCtx.stroke();
+
+          // Cabeza incandescente
+          willowCtx.beginPath();
+          willowCtx.arc(p.x, p.y, 1.4, 0, Math.PI * 2);
+          willowCtx.fillStyle = '#ffffff';
+          willowCtx.globalAlpha = p.a;
+          willowCtx.fill();
+        } else {
+          ctx.globalAlpha = Math.max(0, p.a);
+          ctx.fillStyle = p.c;
+          ctx.beginPath(); ctx.arc(p.x, p.y, 2.2, 0, Math.PI*2); ctx.fill();
+        }
 
         // Water reflection
         if(p.y < wy) {
-          ctx.globalAlpha = Math.max(0, p.a * 0.25);
+          ctx.globalAlpha = Math.max(0, p.a * (p.isWillow ? 0.36 : 0.25));
           ctx.beginPath();
-          ctx.ellipse(p.x, wy + (wy - p.y) * 0.72, 3.5, 1.2, 0, 0, Math.PI*2);
+          ctx.ellipse(p.x, wy + (wy - p.y) * 0.72, p.isWillow ? 4.5 : 3.5, 1.2, 0, 0, Math.PI*2);
           ctx.fill();
         }
 
         if(p.a <= 0) particles.splice(i, 1);
       }
+      willowCtx.restore();
 
       ctx.restore();
       requestAnimationFrame(loop);
@@ -714,6 +953,12 @@ export default function App() {
 
   // Firework Types List
   const fireworkTypes: { id: FireworkType; name: string; desc: string; icon: React.ReactNode }[] = [
+    {
+      id: 'altair_signature',
+      name: 'Firma "ALTAIR"',
+      desc: 'Palabra luminosa de oro estelar centrada en el cielo',
+      icon: <Crown className="w-4 h-4 text-amber-300 fill-amber-300" />,
+    },
     {
       id: 'magic_shapes',
       name: 'Formas Mágicas Disney',
@@ -857,6 +1102,38 @@ export default function App() {
               <Star className={`w-4 h-4 ${config.starrySky !== false ? 'fill-amber-300' : ''}`} />
             </button>
 
+            {/* Quick Deep Night Mode Toggle */}
+            <button
+              onClick={() => {
+                setConfig((prev) => {
+                  const newDeep = !(prev.deepNightMode || prev.skyTheme === 'deep_night');
+                  return {
+                    ...prev,
+                    deepNightMode: newDeep,
+                    skyTheme: newDeep ? 'deep_night' : 'night',
+                  };
+                });
+              }}
+              className={`p-2.5 rounded-xl min-h-[40px] min-w-[40px] flex items-center justify-center transition-all ${
+                config.deepNightMode || config.skyTheme === 'deep_night'
+                  ? 'text-indigo-200 bg-indigo-950/90 border border-indigo-500/60 shadow-sm shadow-indigo-500/40'
+                  : 'text-slate-500 bg-slate-800/60'
+              }`}
+              title={
+                config.deepNightMode || config.skyTheme === 'deep_night'
+                  ? 'Modo Nocturno Profundo activado'
+                  : 'Activar Modo Nocturno Profundo'
+              }
+            >
+              <Moon
+                className={`w-4 h-4 ${
+                  config.deepNightMode || config.skyTheme === 'deep_night'
+                    ? 'fill-indigo-300 text-indigo-300'
+                    : ''
+                }`}
+              />
+            </button>
+
             {/* In-App PWA Install Button */}
             <PWAInstallButton compact />
 
@@ -938,11 +1215,24 @@ export default function App() {
             {/* Quick Grand Finale */}
             <button
               onClick={handleGrandFinale}
-              className="flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-xl bg-rose-500/20 active:bg-rose-500/35 border border-rose-500/35 text-rose-300 min-h-[44px]"
-              title="Lanzar Gran Final"
+              className="flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-xl bg-gradient-to-tr from-rose-500/25 to-pink-500/25 active:scale-95 border border-rose-500/40 text-rose-200 min-h-[44px] shadow-sm"
+              title="Lanzar Gran Final con Cierre de Nombres Especiales"
             >
-              <Zap className="w-4 h-4 text-rose-400" />
-              <span className="text-[10px] font-bold mt-0.5">Final!</span>
+              <Zap className="w-4 h-4 text-rose-300" />
+              <span className="text-[10px] font-bold mt-0.5 whitespace-nowrap">Gran Final</span>
+            </button>
+
+            {/* Quick Family Word Launcher */}
+            <button
+              onClick={() => {
+                setMenuTab('family');
+                setShowMenu(true);
+              }}
+              className="flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-xl bg-gradient-to-tr from-amber-500/25 to-yellow-500/25 active:scale-95 border border-amber-500/50 text-amber-200 min-h-[44px] shadow-sm"
+              title="Selector de Nombres Especiales"
+            >
+              <Users className="w-4 h-4 text-amber-300" />
+              <span className="text-[10px] font-bold mt-0.5 whitespace-nowrap truncate max-w-[50px]">{selectedWord}</span>
             </button>
 
             {/* Quick Settings Drawer Open */}
@@ -1010,6 +1300,17 @@ export default function App() {
               >
                 <Castle className="w-3.5 h-3.5" />
                 <span>Escenarios</span>
+              </button>
+              <button
+                onClick={() => setMenuTab('family')}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap min-h-[38px] ${
+                  menuTab === 'family'
+                    ? 'bg-amber-400 text-slate-950 font-bold shadow-md'
+                    : 'text-slate-400 bg-slate-800/40'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Nombres Especiales</span>
               </button>
               <button
                 onClick={() => setMenuTab('types')}
@@ -1160,20 +1461,29 @@ export default function App() {
                     {/* Sky Theme Selector */}
                     <div className="space-y-1.5 pt-1 border-t border-slate-700/50">
                       <span className="text-[11px] font-bold text-slate-300 block">Gradiente y Tono del Cielo</span>
-                      <div className="grid grid-cols-3 gap-1.5">
+                      <div className="grid grid-cols-2 gap-1.5">
                         {(
                           [
-                            { id: 'night', label: 'Noche', desc: 'Oscura y profunda' },
+                            { id: 'deep_night', label: 'Noche Profunda', desc: 'Negro OLED puro y resplandor' },
+                            { id: 'night', label: 'Noche Clásica', desc: 'Azul oscuro estelar' },
                             { id: 'twilight', label: 'Crepúsculo', desc: 'Violeta / Magenta' },
                             { id: 'dawn', label: 'Amanecer', desc: 'Azul alba suave' },
                           ] as const
                         ).map((theme) => {
-                          const isCurrent = (config.skyTheme || 'night') === theme.id;
+                          const isCurrent =
+                            (config.skyTheme || 'night') === theme.id ||
+                            (theme.id === 'deep_night' && config.deepNightMode);
                           return (
                             <button
                               key={theme.id}
-                              onClick={() => setConfig((prev) => ({ ...prev, skyTheme: theme.id }))}
-                              className={`p-2 rounded-xl text-center border min-h-[42px] transition-all ${
+                              onClick={() =>
+                                setConfig((prev) => ({
+                                  ...prev,
+                                  skyTheme: theme.id,
+                                  deepNightMode: theme.id === 'deep_night',
+                                }))
+                              }
+                              className={`p-2 rounded-xl text-center border min-h-[44px] transition-all ${
                                 isCurrent
                                   ? 'bg-amber-400 text-slate-950 font-bold border-amber-400 shadow-md'
                                   : 'bg-slate-800/50 text-slate-300 border-slate-700/60'
@@ -1188,7 +1498,165 @@ export default function App() {
                         })}
                       </div>
                     </div>
+
+                    {/* BOTÓN MODO NOCTURNO PROFUNDO */}
+                    <div className="p-3 rounded-2xl bg-gradient-to-r from-slate-950 via-indigo-950/70 to-slate-950 border border-indigo-500/40 space-y-2 shadow-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-400/35">
+                            <Moon className="w-4 h-4 fill-indigo-300 text-indigo-300" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-slate-100">Modo Nocturno Profundo</span>
+                              <span className="text-[9px] px-1.5 py-0.2 rounded-full font-mono bg-indigo-500/25 text-indigo-200 border border-indigo-400/35 font-bold">
+                                Cine OLED
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 block leading-tight">
+                              Oscurece al máximo el cielo a negro azabache, resaltando el brillo y la luminosidad de todas las partículas
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setConfig((prev) => {
+                              const newDeep = !(prev.deepNightMode || prev.skyTheme === 'deep_night');
+                              return {
+                                ...prev,
+                                deepNightMode: newDeep,
+                                skyTheme: newDeep ? 'deep_night' : 'night',
+                              };
+                            });
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all min-h-[34px] ${
+                            config.deepNightMode || config.skyTheme === 'deep_night'
+                              ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-500/35 ring-1 ring-indigo-400'
+                              : 'bg-slate-800 text-slate-300 border border-slate-700'
+                          }`}
+                        >
+                          {config.deepNightMode || config.skyTheme === 'deep_night' ? 'Activado' : 'Desactivado'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* CICLO DÍA-NOCHE (AUTO SHOW - 2 MINUTOS) */}
+                    <div className="p-3 rounded-2xl bg-gradient-to-r from-slate-950 via-amber-950/40 to-slate-950 border border-amber-500/40 space-y-2.5 shadow-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-400/35">
+                            <Sun className="w-4 h-4 text-amber-300" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-slate-100">Ciclo Día-Noche</span>
+                              <span className="text-[9px] px-1.5 py-0.2 rounded-full font-mono bg-amber-500/25 text-amber-200 border border-amber-400/35 font-bold">
+                                Cada 2 min
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 block leading-tight">
+                              Fase activa: <strong className="text-amber-300">{dayNightPhaseName}</strong>. Cambia cielo y estrellas dinámicamente.
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setConfig((prev) => ({ ...prev, dayNightCycle: !prev.dayNightCycle }))}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all min-h-[34px] ${
+                            config.dayNightCycle !== false
+                              ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-md shadow-amber-500/30'
+                              : 'bg-slate-800 text-slate-300 border border-slate-700'
+                          }`}
+                        >
+                          {config.dayNightCycle !== false ? 'Activo' : 'Pausa'}
+                        </button>
+                      </div>
+                      <button
+                        onClick={handleAdvanceDayNight}
+                        className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-slate-800/80 active:bg-slate-700 border border-amber-500/30 text-amber-200 text-xs font-semibold"
+                      >
+                        <Sun className="w-3.5 h-3.5" />
+                        <span>Avanzar al siguiente cielo ahora</span>
+                      </button>
+                    </div>
                   </div>
+                </div>
+              )}
+
+              {/* TAB: NOMBRES ESPECIALES FAMILIARES */}
+              {menuTab === 'family' && (
+                <div className="space-y-3">
+                  <div className="p-3 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950/60 border border-amber-500/40">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <div className="p-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-400/35">
+                        <Users className="w-4 h-4 text-amber-300" />
+                      </div>
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-100">Cierre con Nombres Especiales</h3>
+                        <p className="text-[10px] text-slate-400">
+                          Forman en el cielo estas palabras con partículas de luz brillantes y centradas en el Gran Final o al tocarlas directamente.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {FAMILY_NAMES.map((name) => {
+                      const isSelected = selectedWord === name;
+                      return (
+                        <div
+                          key={name}
+                          className={`p-3 rounded-2xl border flex flex-col justify-between transition-all ${
+                            isSelected
+                              ? 'bg-slate-800/90 border-amber-400 shadow-md ring-1 ring-amber-400'
+                              : 'bg-slate-800/40 border-slate-700/60'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-extrabold tracking-wide text-slate-100 font-serif">
+                              "{name}"
+                            </span>
+                            {isSelected && (
+                              <span className="w-2 h-2 rounded-full bg-amber-400 shadow-sm shadow-amber-400" />
+                            )}
+                          </div>
+                          <div className="flex gap-1.5">
+                            <button
+                              onClick={() => {
+                                setSelectedWord(name);
+                                setConfig((prev) => ({ ...prev, signatureWord: name }));
+                              }}
+                              className={`flex-1 py-1.5 px-2 rounded-xl text-[10px] font-bold transition-all min-h-[32px] ${
+                                isSelected
+                                  ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40'
+                                  : 'bg-slate-700/60 text-slate-300'
+                              }`}
+                            >
+                              {isSelected ? 'Activo' : 'Elegir'}
+                            </button>
+                            <button
+                              onClick={() => handleFamilyWordLaunch(name)}
+                              className="py-1.5 px-2.5 rounded-xl text-[10px] font-bold bg-gradient-to-r from-amber-400 to-rose-400 text-slate-950 shadow-sm active:scale-95 min-h-[32px]"
+                              title={`Lanzar fuegos artificiales de "${name}"`}
+                            >
+                              ¡Lanzar!
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Botón Lanzar Aleatorio */}
+                  <button
+                    onClick={() => {
+                      const randomWord = FAMILY_NAMES[Math.floor(Math.random() * FAMILY_NAMES.length)];
+                      handleFamilyWordLaunch(randomWord);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white font-bold text-xs shadow-md active:scale-95 min-h-[42px]"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Lanzar Nombre Sorpresa Aleatorio</span>
+                  </button>
                 </div>
               )}
 
@@ -1320,6 +1788,146 @@ export default function App() {
                       onChange={(e) => setConfig((prev) => ({ ...prev, explosionForce: Number(e.target.value) }))}
                       className="w-full accent-rose-400 bg-slate-700 h-2 rounded-lg cursor-pointer"
                     />
+                  </div>
+
+                  {/* SAUCE LLORÓN - BUFFER ACUMULATIVO */}
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/15 via-yellow-500/10 to-slate-900/80 border border-amber-400/40 space-y-3 shadow-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-xl bg-amber-400/20 text-amber-300 border border-amber-400/35">
+                          <Flame className="w-4 h-4 text-amber-300" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-slate-100">Sauce Llorón (Buffer Acumulativo)</span>
+                            <span className="text-[9px] px-1.5 py-0.2 rounded-full font-mono bg-amber-400/25 text-amber-300 border border-amber-400/35 font-bold">
+                              60 FPS
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 block leading-tight">
+                            Buffer acumulativo de luz que estampa estelas doradas hiper-persistentes
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Persistence Slider */}
+                    <div className="space-y-1 pt-1.5 border-t border-amber-400/20">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-200">Persistencia de Estelas (Buffer)</span>
+                        <span className="font-mono text-amber-300 font-bold">
+                          {Math.round(((config.willowPersistence ?? 0.985) - 0.95) / 0.045 * 100)}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.955"
+                        max="0.995"
+                        step="0.002"
+                        value={config.willowPersistence ?? 0.985}
+                        onChange={(e) => setConfig((prev) => ({ ...prev, willowPersistence: Number(e.target.value) }))}
+                        className="w-full accent-amber-400 bg-slate-700 h-2 rounded-lg cursor-pointer"
+                      />
+                      <div className="flex justify-between text-[10px] text-slate-400">
+                        <span>Estándar (95.5%)</span>
+                        <span>Cascada Disney (98.5%)</span>
+                        <span>Oro Infinito (99.5%)</span>
+                      </div>
+                    </div>
+
+                    {/* Willow Glow Slider */}
+                    <div className="space-y-1 pt-1.5 border-t border-amber-400/20">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-200">Brillo de Estelas Acumulativas</span>
+                        <span className="font-mono text-amber-300 font-bold">
+                          {(config.willowGlow ?? 1.25).toFixed(2)}x
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1.0"
+                        max="2.2"
+                        step="0.05"
+                        value={config.willowGlow ?? 1.25}
+                        onChange={(e) => setConfig((prev) => ({ ...prev, willowGlow: Number(e.target.value) }))}
+                        className="w-full accent-amber-400 bg-slate-700 h-2 rounded-lg cursor-pointer"
+                      />
+                      <div className="flex justify-between text-[10px] text-slate-400">
+                        <span>1.0x (Natural)</span>
+                        <span>1.25x (Radiante)</span>
+                        <span>2.2x (Incandescente)</span>
+                      </div>
+                    </div>
+
+                    {/* Test Button */}
+                    <button
+                      onClick={() => {
+                        audioEngine.init();
+                        engineRef.current?.triggerGoldenRain();
+                      }}
+                      className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 mt-1"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 fill-slate-950" />
+                      <span>Probar Cascada de Sauce Llorón</span>
+                    </button>
+                  </div>
+
+                  {/* HUMO CINEMATOGRÁFICO */}
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-br from-slate-800/60 to-slate-900/80 border border-slate-700/70 space-y-3 shadow-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-xl bg-slate-700/60 text-slate-200 border border-slate-600/40">
+                          <Wind className="w-4 h-4 text-slate-300" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-slate-100">Humo Cinematográfico</span>
+                            <span className="text-[9px] px-1.5 py-0.2 rounded-full font-mono bg-slate-700/80 text-slate-300 border border-slate-600/50">
+                              Realismo Fotorrealista
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 block leading-tight">
+                            Bruma grisácea sutil tras los cohetes y explosiones con iluminación ambiental
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setConfig((prev) => ({ ...prev, cinematicSmoke: prev.cinematicSmoke === false }))}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all min-h-[34px] ${
+                          config.cinematicSmoke !== false
+                            ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/20'
+                            : 'bg-slate-700 text-slate-300'
+                        }`}
+                      >
+                        {config.cinematicSmoke !== false ? 'Activo' : 'Inactivo'}
+                      </button>
+                    </div>
+
+                    {/* Smoke Density Slider */}
+                    {config.cinematicSmoke !== false && (
+                      <div className="space-y-1.5 pt-1 border-t border-slate-700/50">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-300">Densidad de Humo Grisáceo</span>
+                          <span className="font-mono text-amber-300 font-bold">
+                            {Math.round((config.smokeDensity ?? 1.0) * 100)}%
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.5"
+                          max="1.5"
+                          step="0.05"
+                          value={config.smokeDensity ?? 1.0}
+                          onChange={(e) => setConfig((prev) => ({ ...prev, smokeDensity: Number(e.target.value) }))}
+                          className="w-full accent-amber-400 bg-slate-700 h-2 rounded-lg cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-slate-400">
+                          <span>Sutil (50%)</span>
+                          <span>Estándar (100%)</span>
+                          <span>Volumétrico (150%)</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

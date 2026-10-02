@@ -336,6 +336,88 @@ class FireworksAudioEngine {
     osc.start(t);
     osc.stop(t + (isDownbeat ? 0.16 : 0.07));
   }
+
+  /**
+   * Sonido de Firma y Nombres Familiares: Acorde majestuoso armónico celestial + campanillas de polvo de estrellas + retumbe épico
+   */
+  public playFamilyWordSound(word = 'Altair') {
+    if (!this.ctx || this.isMuted || !this.masterGain) return;
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
+
+    const t = this.ctx.currentTime;
+
+    // 1. Explosión de fondo profunda y resonante
+    this.playExplosion(1.85, true);
+
+    // Mapeo tonal según el nombre para dar identidad sonora única a cada familiar
+    let chordNotes = [261.63, 329.63, 392.0, 523.25, 659.25, 783.99]; // C Mayor por defecto
+    const lower = word.toLowerCase();
+    if (lower.includes('papá') || lower.includes('papa')) {
+      chordNotes = [174.61, 261.63, 349.23, 440.0, 523.25, 698.46]; // F Mayor cálido
+    } else if (lower.includes('mamá') || lower.includes('mama')) {
+      chordNotes = [196.0, 293.66, 392.0, 493.88, 587.33, 783.99]; // G Mayor amoroso
+    } else if (lower.includes('abuelo')) {
+      chordNotes = [155.56, 233.08, 311.13, 392.0, 466.16, 622.25]; // Eb Mayor noble y profundo
+    } else if (lower.includes('abuela')) {
+      chordNotes = [207.65, 261.63, 311.13, 415.3, 523.25, 622.25]; // Ab Mayor dulce
+    } else if (lower.includes('sox')) {
+      chordNotes = [293.66, 369.99, 440.0, 587.33, 739.99, 880.0]; // D Mayor brillante
+    } else if (lower.includes('tía') || lower.includes('tia')) {
+      chordNotes = [233.08, 293.66, 349.23, 466.16, 587.33, 698.46]; // Bb Mayor alegre
+    } else if (lower.includes('sofi')) {
+      chordNotes = [329.63, 392.0, 493.88, 659.25, 783.99, 987.77]; // E Mayor radiante
+    }
+
+    chordNotes.forEach((freq, idx) => {
+      if (!this.ctx || !this.masterGain) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = idx % 2 === 0 ? 'sine' : 'triangle';
+      osc.frequency.setValueAtTime(freq, t);
+
+      // Ataque suave y gran caída envolvente
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.09 / chordNotes.length, t + 0.18);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 3.8);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+
+      osc.start(t);
+      osc.stop(t + 4.0);
+    });
+
+    // 3. Cascada de campanillas celestiales y polvo de hadas (Disney Fairy Dust Chimes)
+    const baseFreq = chordNotes[2] * 2.5;
+    const sparkleNotes = [baseFreq, baseFreq * 1.25, baseFreq * 1.5, baseFreq * 2.0, baseFreq * 2.5, baseFreq * 3.0];
+    sparkleNotes.forEach((freq, idx) => {
+      if (!this.ctx || !this.masterGain) return;
+      const noteTime = t + 0.08 + idx * 0.07;
+      const chOsc = this.ctx.createOscillator();
+      const chGain = this.ctx.createGain();
+      chOsc.type = 'sine';
+      chOsc.frequency.setValueAtTime(freq, noteTime);
+
+      chGain.gain.setValueAtTime(0.0001, noteTime);
+      chGain.gain.exponentialRampToValueAtTime(0.07, noteTime + 0.03);
+      chGain.gain.exponentialRampToValueAtTime(0.0001, noteTime + 1.8);
+
+      chOsc.connect(chGain);
+      chGain.connect(this.masterGain);
+
+      chOsc.start(noteTime);
+      chOsc.stop(noteTime + 1.85);
+    });
+  }
+
+  /**
+   * Alias de compatibilidad para la firma Altair
+   */
+  public playAltairSignature() {
+    this.playFamilyWordSound('Altair');
+  }
 }
 
 export const audioEngine = new FireworksAudioEngine();

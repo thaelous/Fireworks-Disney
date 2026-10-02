@@ -7,10 +7,11 @@ export type FireworkType =
   | 'double_core'
   | 'ring'
   | 'crossette'
-  | 'random';
+  | 'random'
+  | 'altair_signature';
 
 export type DisneyScenario = 'castle' | 'tomorrowland' | 'jungle' | 'minimal';
-export type SkyTheme = 'night' | 'twilight' | 'dawn';
+export type SkyTheme = 'night' | 'twilight' | 'dawn' | 'deep_night';
 
 export interface FireworkConfig {
   type: FireworkType;
@@ -27,6 +28,13 @@ export interface FireworkConfig {
   bpm: number; // 60 - 180
   starrySky?: boolean;
   starIntensity?: number; // 0.5 - 1.5
+  willowPersistence?: number; // 0.85 - 0.99 (Retención de luz en el buffer acumulativo)
+  willowGlow?: number; // 1.0 - 2.5 (Brillo acumulativo de las estelas)
+  cinematicSmoke?: boolean; // Capa de humo grisáceo cinematográfico
+  smokeDensity?: number; // 0.5 - 1.5 (Densidad y opacidad del humo)
+  deepNightMode?: boolean; // Modo Nocturno Profundo: cielo negro azabache absoluto y luminosidad resaltada
+  signatureWord?: string; // Palabra familiar activa ('Altair', 'papá', 'mamá', 'abuelo', 'abuela', 'Sox', 'Tía', 'Sofi')
+  dayNightCycle?: boolean; // Ciclo Día-Noche automático cada 2 minutos durante el Auto Show
 }
 
 export interface PresetPalette {
@@ -88,6 +96,79 @@ export const DISNEY_PALETTES: PresetPalette[] = [
     glow: 'rgba(255, 255, 255, 0.45)',
   },
 ];
+
+// Nombres Especiales para la Firma Familiar
+export const FAMILY_NAMES = ['ALTAIR', 'mamá', 'papá', 'abuela', 'abuelo', 'tía', 'Sofi'] as const;
+export type FamilyName = typeof FAMILY_NAMES[number];
+
+// Fases del Ciclo Día-Noche automático durante el Auto Show (cada 2 minutos)
+export const DAY_NIGHT_PHASES: { theme: SkyTheme; starIntensity: number; name: string }[] = [
+  { theme: 'night', starIntensity: 1.0, name: 'Noche Estelar' },
+  { theme: 'deep_night', starIntensity: 1.35, name: 'Noche Profunda OLED' },
+  { theme: 'dawn', starIntensity: 0.45, name: 'Amanecer Mágico' },
+  { theme: 'twilight', starIntensity: 0.75, name: 'Crepúsculo Dorado' },
+];
+
+// Rasterizador de partículas para Nombres Familiares Luminosos
+const cachedWordPoints: Record<string, { dx: number; dy: number }[]> = {};
+
+export function getWordLetterPoints(word = 'ALTAIR'): { dx: number; dy: number }[] {
+  const cleanWord = (word || 'ALTAIR').trim();
+  if (cachedWordPoints[cleanWord] && cachedWordPoints[cleanWord].length > 0) {
+    return cachedWordPoints[cleanWord];
+  }
+
+  const offCanvas = document.createElement('canvas');
+  offCanvas.width = 600;
+  offCanvas.height = 200;
+  const offCtx = offCanvas.getContext('2d', { willReadFrequently: true });
+  if (!offCtx) return [];
+
+  offCtx.font = 'bold 80px sans-serif';
+  offCtx.fillStyle = 'white';
+  offCtx.textAlign = 'center';
+  offCtx.textBaseline = 'middle';
+  offCtx.fillText(cleanWord, 300, 100);
+
+  const points: { dx: number; dy: number }[] = [];
+  try {
+    const imgData = offCtx.getImageData(0, 0, 600, 200);
+    const pixels = imgData.data;
+    for (let y = 0; y < 200; y += 4) {
+      for (let x = 0; x < 600; x += 4) {
+        const index = (y * 600 + x) * 4;
+        if (pixels[index + 3] > 128) {
+          points.push({ dx: x - 300, dy: y - 100 });
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Canvas pixel extraction fallback', e);
+  }
+
+  // Salvaguarda: garantiza que siempre existan puntos para la constelación si falla getImageData
+  if (points.length < 15) {
+    for (let i = 0; i < cleanWord.length; i++) {
+      const charOffset = (i - cleanWord.length / 2 + 0.5) * 50;
+      for (let gy = -30; gy <= 30; gy += 8) {
+        points.push({ dx: charOffset, dy: gy });
+        points.push({ dx: charOffset + 16, dy: gy });
+      }
+      for (let gx = 0; gx <= 16; gx += 4) {
+        points.push({ dx: charOffset + gx, dy: -30 });
+        points.push({ dx: charOffset + gx, dy: 0 });
+        points.push({ dx: charOffset + gx, dy: 30 });
+      }
+    }
+  }
+
+  cachedWordPoints[cleanWord] = points;
+  return points;
+}
+
+export function getAltairLetterPoints(): { dx: number; dy: number }[] {
+  return getWordLetterPoints('ALTAIR');
+}
 
 // Background Star with gentle atmospheric fluctuation
 export class Star {
@@ -267,6 +348,8 @@ export class ShootingStar {
 export class Spark {
   x: number;
   y: number;
+  prevX: number;
+  prevY: number;
   vx: number;
   vy: number;
   alpha: number;
@@ -280,9 +363,17 @@ export class Spark {
   hue: number;
   hasCrackle: boolean;
   isCrossette: boolean;
+  isWillow: boolean;
   hasSplit: boolean;
   history: { x: number; y: number }[];
   maxHistory: number;
+  isStaticConstellation: boolean;
+  constellationBirth: number;
+  constellationDuration: number;
+  destX: number;
+  destY: number;
+  phase: number;
+  twinkleSpeed: number;
 
   constructor(
     x: number,
@@ -300,29 +391,78 @@ export class Spark {
       maxHistory?: number;
       hasCrackle?: boolean;
       isCrossette?: boolean;
+      isWillow?: boolean;
+      isStaticConstellation?: boolean;
+      constellationDuration?: number;
+      destX?: number;
+      destY?: number;
     }
   ) {
     this.x = x;
     this.y = y;
+    this.prevX = x;
+    this.prevY = y;
     this.vx = vx;
     this.vy = vy;
     this.color = color;
     this.alpha = 1;
-    this.size = options?.size ?? Math.random() * 2 + 1.2;
-    this.decay = options?.decay ?? Math.random() * 0.015 + 0.012;
-    this.drag = options?.drag ?? 0.97;
-    this.gravity = options?.gravity ?? 0.045;
+    this.isWillow = options?.isWillow ?? false;
+    this.size = options?.size ?? (this.isWillow ? Math.random() * 2.2 + 1.4 : Math.random() * 2 + 1.2);
+    // Sauce Llorón: larga vida útil (~250-320 frames) para permitir que la cascada dorada fluya continuamente
+    this.decay = options?.decay ?? (this.isWillow ? Math.random() * 0.0042 + 0.0032 : Math.random() * 0.015 + 0.012);
+    this.drag = options?.drag ?? (this.isWillow ? 0.968 : 0.97);
+    this.gravity = options?.gravity ?? (this.isWillow ? 0.062 : 0.045);
     this.flicker = options?.flicker ?? true;
     this.hueShift = options?.hueShift ?? 0;
     this.hue = Math.random() * 360;
     this.hasCrackle = options?.hasCrackle ?? false;
     this.isCrossette = options?.isCrossette ?? false;
     this.hasSplit = false;
-    this.maxHistory = options?.maxHistory ?? 4;
+    this.maxHistory = options?.maxHistory ?? (this.isWillow ? 16 : 4);
     this.history = [{ x, y }];
+
+    this.isStaticConstellation = options?.isStaticConstellation ?? false;
+    this.constellationBirth = Date.now();
+    this.constellationDuration = options?.constellationDuration ?? 5000;
+    this.destX = options?.destX ?? x;
+    this.destY = options?.destY ?? y;
+    this.phase = Math.random() * Math.PI * 2;
+    this.twinkleSpeed = Math.random() * 0.08 + 0.04;
   }
 
   update(): boolean {
+    if (this.isStaticConstellation) {
+      const elapsed = Date.now() - this.constellationBirth;
+      if (elapsed < 240) {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vx *= 0.82;
+        this.vy *= 0.82;
+      } else {
+        this.x = this.destX;
+        this.y = this.destY;
+        this.vx = 0;
+        this.vy = 0;
+      }
+
+      this.phase += this.twinkleSpeed;
+
+      // 4. Permanecer estáticas, titilando suavemente como una constelación en el cielo durante exactamente 5 segundos
+      if (elapsed <= this.constellationDuration) {
+        this.alpha = 0.85 + Math.sin(this.phase) * 0.15;
+      } else {
+        // Luego desvanecerse progresivamente
+        this.alpha -= 0.016;
+        if (this.alpha <= 0) {
+          this.alpha = 0;
+          return false;
+        }
+      }
+      return true;
+    }
+    this.prevX = this.x;
+    this.prevY = this.y;
+
     this.history.unshift({ x: this.x, y: this.y });
     if (this.history.length > this.maxHistory) {
       this.history.pop();
@@ -343,6 +483,75 @@ export class Spark {
     return this.alpha > 0;
   }
 
+  // Dibujado en Buffer Acumulativo de Sauce Llorón (Kamuro Gold Waterfall)
+  // Estampa tramos de luz con mezcla aditiva que persisten y se acumulan en el lienzo fuera de pantalla
+  drawWillowAccumulative(ctx: CanvasRenderingContext2D, glow = 1.0) {
+    if (this.alpha <= 0) return;
+    const dx = this.x - this.prevX;
+    const dy = this.y - this.prevY;
+    if (dx === 0 && dy === 0) return;
+
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    const flickerMod = this.flicker && Math.random() > 0.84 ? 0.55 : 1.0;
+    const effectiveAlpha = Math.min(1.0, this.alpha * flickerMod);
+
+    // Pase 1: Halo radiante de oro ámbar cálido (amplitud luminosa acumulativa)
+    ctx.beginPath();
+    ctx.moveTo(this.prevX, this.prevY);
+    ctx.lineTo(this.x, this.y);
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = Math.max(3.0, this.size * 3.2 * glow);
+    ctx.globalAlpha = effectiveAlpha * 0.38;
+    ctx.stroke();
+
+    // Pase 2: Seda dorada incandescente intermedia de alto brillo
+    ctx.beginPath();
+    ctx.moveTo(this.prevX, this.prevY);
+    ctx.lineTo(this.x, this.y);
+    ctx.strokeStyle = '#ffe484';
+    ctx.lineWidth = Math.max(1.6, this.size * 1.5 * glow);
+    ctx.globalAlpha = effectiveAlpha * 0.82;
+    ctx.stroke();
+
+    // Pase 3: Núcleo filiforme blanco-oro incandescente
+    ctx.beginPath();
+    ctx.moveTo(this.prevX, this.prevY);
+    ctx.lineTo(this.x, this.y);
+    ctx.strokeStyle = '#fffdf5';
+    ctx.lineWidth = Math.max(0.85, this.size * 0.8);
+    ctx.globalAlpha = effectiveAlpha * 0.98;
+    ctx.stroke();
+
+    // Cabeza incandescente activa: chispa ardiente con destello puntual
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, Math.max(1.4, this.size * 0.9), 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.globalAlpha = effectiveAlpha;
+    ctx.fill();
+
+    // Micro-chisporroteo centelleante ocasional
+    if (this.hasCrackle && Math.random() > 0.72) {
+      ctx.beginPath();
+      const sparkDist = (Math.random() * 3 + 1) * glow;
+      const sparkAngle = Math.random() * Math.PI * 2;
+      ctx.arc(
+        this.x + Math.cos(sparkAngle) * sparkDist,
+        this.y + Math.sin(sparkAngle) * sparkDist,
+        Math.random() * 0.9 + 0.5,
+        0,
+        Math.PI * 2
+      );
+      ctx.fillStyle = '#fffbeb';
+      ctx.globalAlpha = effectiveAlpha * 0.9;
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
   draw(ctx: CanvasRenderingContext2D) {
     if (this.alpha <= 0) return;
 
@@ -356,7 +565,46 @@ export class Spark {
 
     const strokeColor = this.hueShift > 0 ? `hsl(${this.hue}, 100%, 65%)` : this.color;
 
-    // Draw particle trail stream
+    // Willow Particle fallback if drawn directly to standard context
+    if (this.isWillow && this.history.length > 1) {
+      // Pass 1: Warm amber/gold radiant outer glow
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.y);
+      for (let i = 0; i < this.history.length; i++) {
+        ctx.lineTo(this.history[i].x, this.history[i].y);
+      }
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = this.size * 2.3;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.globalAlpha = displayAlpha * 0.42;
+      ctx.stroke();
+
+      // Pass 2: High-luminance starlight molten gold core
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.y);
+      for (let i = 0; i < this.history.length; i++) {
+        ctx.lineTo(this.history[i].x, this.history[i].y);
+      }
+      ctx.strokeStyle = '#fffbeb';
+      ctx.lineWidth = Math.max(1, this.size * 0.9);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.globalAlpha = displayAlpha * 0.95;
+      ctx.stroke();
+
+      // Incandescent head spark
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, Math.max(1.2, this.size * 0.85), 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.globalAlpha = displayAlpha;
+      ctx.fill();
+
+      ctx.restore();
+      return;
+    }
+
+    // Standard particle trail stream
     if (this.history.length > 1) {
       ctx.beginPath();
       ctx.moveTo(this.x, this.y);
@@ -388,11 +636,14 @@ export class Spark {
     const reflectX = this.x + jitter;
 
     ctx.save();
-    ctx.globalAlpha = this.alpha * 0.28;
+    const reflectAlpha = this.isWillow ? this.alpha * 0.42 : this.alpha * 0.28;
+    ctx.globalAlpha = reflectAlpha;
     const strokeColor = this.hueShift > 0 ? `hsl(${this.hue}, 100%, 65%)` : this.color;
     ctx.fillStyle = strokeColor;
     ctx.beginPath();
-    ctx.ellipse(reflectX, reflectY, Math.max(1, this.size * 2), Math.max(0.5, this.size * 0.6), 0, 0, Math.PI * 2);
+    const rx = this.isWillow ? Math.max(1.5, this.size * 2.8) : Math.max(1, this.size * 2);
+    const ry = this.isWillow ? Math.max(0.8, this.size * 0.9) : Math.max(0.5, this.size * 0.6);
+    ctx.ellipse(reflectX, reflectY, rx, ry, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
@@ -546,26 +797,138 @@ export class SkyFlash {
   }
 }
 
+// Cinematic Pyro Smoke Particle (Grisáceo, sutil, expansivo y persistente)
+export class SmokeParticle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  maxRadius: number;
+  expansionRate: number;
+  alpha: number;
+  decay: number;
+  rotation: number;
+  rotationSpeed: number;
+
+  constructor(
+    x: number,
+    y: number,
+    options?: {
+      vx?: number;
+      vy?: number;
+      initialRadius?: number;
+      maxRadius?: number;
+      alpha?: number;
+      decay?: number;
+    }
+  ) {
+    this.x = x;
+    this.y = y;
+    this.vx = options?.vx ?? (Math.random() * 0.3 - 0.15);
+    this.vy = options?.vy ?? (Math.random() * -0.25 - 0.05);
+    this.radius = options?.initialRadius ?? (Math.random() * 3.5 + 2.5);
+    this.maxRadius = options?.maxRadius ?? (this.radius * (Math.random() * 3.5 + 2.8));
+    this.decay = options?.decay ?? (Math.random() * 0.0032 + 0.0022); // ~180-320 frames (~3.0 a 5.5 seg)
+    const lifespanFrames = Math.max(80, 1 / this.decay);
+    this.expansionRate = (this.maxRadius - this.radius) / (lifespanFrames * 0.75);
+    this.alpha = options?.alpha ?? (Math.random() * 0.05 + 0.13);
+    this.rotation = Math.random() * Math.PI * 2;
+    this.rotationSpeed = Math.random() * 0.008 - 0.004;
+  }
+
+  update(): boolean {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.vx *= 0.985;
+    this.vy *= 0.985;
+    this.vy -= 0.006; // Corriente térmica suave ascendente
+
+    if (this.radius < this.maxRadius) {
+      this.radius += this.expansionRate;
+    }
+    this.rotation += this.rotationSpeed;
+    this.alpha -= this.decay;
+    return this.alpha > 0;
+  }
+
+  draw(ctx: CanvasRenderingContext2D, ambientFlashBrightness: number = 0) {
+    if (this.alpha <= 0) return;
+
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rotation);
+
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.radius);
+    const displayAlpha = Math.min(0.24, this.alpha);
+
+    // Iluminación sutil cuando los destellos del show alumbran el cielo nocturno
+    if (ambientFlashBrightness > 0.04) {
+      const flashBoost = Math.min(0.12, ambientFlashBrightness * 0.18);
+      grad.addColorStop(0, `rgba(215, 222, 238, ${displayAlpha + flashBoost})`);
+      grad.addColorStop(0.5, `rgba(165, 175, 195, ${(displayAlpha + flashBoost) * 0.55})`);
+      grad.addColorStop(1, 'rgba(120, 130, 150, 0)');
+    } else {
+      // Tono grisáceo sutil natural de humo pirotécnico nocturno
+      grad.addColorStop(0, `rgba(168, 178, 196, ${displayAlpha})`);
+      grad.addColorStop(0.5, `rgba(138, 148, 168, ${displayAlpha * 0.52})`);
+      grad.addColorStop(1, 'rgba(100, 112, 130, 0)');
+    }
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+}
+
 // Main Fireworks Simulation Engine
 export class FireworksEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private trailCanvas: HTMLCanvasElement;
   private trailCtx: CanvasRenderingContext2D;
+  private willowCanvas: HTMLCanvasElement;
+  private willowCtx: CanvasRenderingContext2D;
   private shootingStar: ShootingStar = new ShootingStar();
   private stars: Star[] = [];
   private rockets: Rocket[] = [];
   private particles: Spark[] = [];
   private secondaryParticles: Spark[] = [];
+  private smokeParticles: SmokeParticle[] = [];
   private flashes: SkyFlash[] = [];
+  private constellationParticles: {
+    x: number;
+    y: number;
+    destX: number;
+    destY: number;
+    color: string;
+    size: number;
+    alpha: number;
+    phase: number;
+    twinkleSpeed: number;
+    spawnTime: number;
+  }[] = [];
+  private constellationEndTime = 0;
+  private wordLifespanTimer: number | null = null;
+  private isWordFadingOut: boolean = false;
   private animationFrameId: number | null = null;
   private isRunning: boolean = false;
   private config: FireworkConfig;
   private autoShowTimeout: number | null = null;
   private rhythmTimeout: number | null = null;
   private beatCounter: number = 0;
+  private dayNightInterval: number | null = null;
+  private currentDayNightIndex: number = 0;
   private onStatsUpdate?: (stats: { particles: number; rockets: number }) => void;
   private onBeatUpdate?: (beat: number, isDownbeat: boolean) => void;
+  private onSkyThemeChange?: (theme: SkyTheme, starIntensity: number, phaseName: string) => void;
+
+  public setSkyThemeCallback(cb: (theme: SkyTheme, starIntensity: number, phaseName: string) => void) {
+    this.onSkyThemeChange = cb;
+  }
 
   constructor(canvas: HTMLCanvasElement, initialConfig: FireworkConfig) {
     this.canvas = canvas;
@@ -574,9 +937,19 @@ export class FireworksEngine {
     this.ctx = ctx;
 
     this.trailCanvas = document.createElement('canvas');
+    this.trailCanvas.width = 360;
+    this.trailCanvas.height = 640;
     const tctx = this.trailCanvas.getContext('2d');
     if (!tctx) throw new Error('Could not get trail canvas context');
     this.trailCtx = tctx;
+
+    // Cumulative buffer specifically designed for persistent Sauce Llorón (Golden Willow) waterfalls
+    this.willowCanvas = document.createElement('canvas');
+    this.willowCanvas.width = 360;
+    this.willowCanvas.height = 640;
+    const wctx = this.willowCanvas.getContext('2d');
+    if (!wctx) throw new Error('Could not get willow canvas context');
+    this.willowCtx = wctx;
 
     this.config = { ...initialConfig };
 
@@ -699,19 +1072,28 @@ export class FireworksEngine {
   public resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const rect = this.canvas.getBoundingClientRect();
-    const width = rect.width || window.innerWidth;
-    const height = rect.height || window.innerHeight;
+    const rawWidth = rect.width > 0 ? rect.width : (typeof window !== 'undefined' && window.innerWidth > 0 ? window.innerWidth : 360);
+    const rawHeight = rect.height > 0 ? rect.height : (typeof window !== 'undefined' && window.innerHeight > 0 ? window.innerHeight : 640);
+    const pixelWidth = Math.max(1, Math.round(rawWidth * dpr));
+    const pixelHeight = Math.max(1, Math.round(rawHeight * dpr));
 
-    this.canvas.width = width * dpr;
-    this.canvas.height = height * dpr;
+    this.canvas.width = pixelWidth;
+    this.canvas.height = pixelHeight;
     this.ctx.resetTransform();
     this.ctx.scale(dpr, dpr);
 
     if (this.trailCanvas) {
-      this.trailCanvas.width = width * dpr;
-      this.trailCanvas.height = height * dpr;
+      this.trailCanvas.width = pixelWidth;
+      this.trailCanvas.height = pixelHeight;
       this.trailCtx.resetTransform();
       this.trailCtx.scale(dpr, dpr);
+    }
+
+    if (this.willowCanvas) {
+      this.willowCanvas.width = pixelWidth;
+      this.willowCanvas.height = pixelHeight;
+      this.willowCtx.resetTransform();
+      this.willowCtx.scale(dpr, dpr);
     }
 
     this.initStars();
@@ -753,7 +1135,20 @@ export class FireworksEngine {
       this.autoShowTimeout = null;
     }
 
+    if (this.dayNightInterval) {
+      clearInterval(this.dayNightInterval);
+      this.dayNightInterval = null;
+    }
+
     if (!enable) return;
+
+    // Ciclo Día-Noche automático durante el Auto Show: cambia la tonalidad del cielo y la intensidad de las estrellas cada 2 minutos (120,000 ms)
+    if (this.config.dayNightCycle !== false) {
+      this.dayNightInterval = window.setInterval(() => {
+        if (!this.isRunning) return;
+        this.advanceDayNightCycle();
+      }, 120000); // 120,000 ms = 2 minutos
+    }
 
     // Play initial magical star chime fanfare
     if (this.config.soundEnabled) {
@@ -769,6 +1164,20 @@ export class FireworksEngine {
 
     this.executeDisneyShowAct();
     this.autoShowTimeout = window.setTimeout(scheduleNext, 2200);
+  }
+
+  // Avanzar manualmente o automáticamente de fase en el Ciclo Día-Noche
+  public advanceDayNightCycle() {
+    this.currentDayNightIndex = (this.currentDayNightIndex + 1) % DAY_NIGHT_PHASES.length;
+    const phase = DAY_NIGHT_PHASES[this.currentDayNightIndex];
+
+    this.config.skyTheme = phase.theme;
+    this.config.deepNightMode = phase.theme === 'deep_night';
+    this.config.starIntensity = phase.starIntensity;
+
+    if (this.onSkyThemeChange) {
+      this.onSkyThemeChange(phase.theme, phase.starIntensity, phase.name);
+    }
   }
 
   // Disney Show Coreography Act
@@ -889,7 +1298,7 @@ export class FireworksEngine {
   }
 
   // Disney Grand Finale: 20+ multi-tier choreographed shells
-  public triggerGrandFinale() {
+  public triggerGrandFinale(forcedWord?: string) {
     const rect = this.canvas.getBoundingClientRect();
     const w = rect.width;
     const h = rect.height;
@@ -898,6 +1307,7 @@ export class FireworksEngine {
       audioEngine.playMagicalChimes();
     }
 
+    // 1. Secuencia intensa y masiva de fuegos artificiales de estilo Disney
     const count = 22;
     for (let i = 0; i < count; i++) {
       setTimeout(() => {
@@ -920,6 +1330,93 @@ export class FireworksEngine {
         this.launchRocket(startX, h + 10, targetX, targetY, finaleConfig, chosenPalette.primary);
       }, i * 140 + Math.random() * 70);
     }
+
+    // 2. AL TERMINAR la lluvia de cohetes, el cielo hace una pausa dramática y se limpia.
+    const finaleEndTime = count * 140 + 1000;
+    setTimeout(() => {
+      if (!this.isRunning) return;
+      this.clearSkyResiduals();
+    }, finaleEndTime);
+
+    // 3. Inmediatamente después (1 segundo exacto de silencio dramático tras limpiarse el cielo):
+    // Explota un último cohete especial en el centro de la pantalla que despliega y deja fijas en el cielo, brillando como estrellas estáticas, una palabra elegida al azar
+    const dramaticPauseDelay = finaleEndTime + 1000; // 1 segundo exacto de pausa dramática en silencio
+
+    setTimeout(() => {
+      if (!this.isRunning) return;
+      const chosenRandomWord = forcedWord || FAMILY_NAMES[Math.floor(Math.random() * FAMILY_NAMES.length)];
+      this.triggerFamilyWord(chosenRandomWord);
+    }, dramaticPauseDelay);
+  }
+
+  // Limpieza total del cielo nocturno tras el Gran Final
+  public clearSkyResiduals() {
+    if (this.wordLifespanTimer !== null) {
+      clearTimeout(this.wordLifespanTimer);
+      this.wordLifespanTimer = null;
+    }
+    this.isWordFadingOut = false;
+    this.constellationParticles = [];
+    this.particles = [];
+    this.rockets = [];
+    this.smokeParticles = [];
+    this.flashes = [];
+    if (this.willowCtx && this.willowCanvas.width > 0 && this.willowCanvas.height > 0) {
+      this.willowCtx.clearRect(0, 0, this.willowCanvas.width, this.willowCanvas.height);
+    }
+    if (this.trailCtx && this.trailCanvas.width > 0 && this.trailCanvas.height > 0) {
+      this.trailCtx.clearRect(0, 0, this.trailCanvas.width, this.trailCanvas.height);
+    }
+  }
+
+  // Inicia la transición suave de desvanecimiento (fade-out) para las partículas de la palabra
+  public initiateWordFadeOut() {
+    this.isWordFadingOut = true;
+    this.constellationEndTime = Math.min(this.constellationEndTime, Date.now());
+  }
+
+  // Lanzamiento directo del Cohete Especial con Nombre Familiar
+  public triggerFamilyWord(word?: string) {
+    if (this.wordLifespanTimer !== null) {
+      clearTimeout(this.wordLifespanTimer);
+      this.wordLifespanTimer = null;
+    }
+    this.isWordFadingOut = false;
+
+    const rect = this.canvas.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+
+    const chosenWord = word || this.config.signatureWord || FAMILY_NAMES[Math.floor(Math.random() * FAMILY_NAMES.length)];
+
+    const signatureConfig: FireworkConfig = {
+      ...this.config,
+      type: 'altair_signature',
+      signatureWord: chosenWord,
+      explosionForce: 1.45,
+      rocketSpeed: 1.15,
+    };
+
+    // Cohete dorado que asciende majestuoso desde la base hasta el centro del firmamento
+    this.launchRocket(w * 0.5, h + 10, w * 0.5, h * 0.28, signatureConfig, '#ffd700');
+
+    // Temporizador de 5 segundos de ciclo de vida para las partículas de la palabra:
+    // Estima el tiempo de ascenso del cohete (~550ms) y añade 5000ms de permanencia estelar
+    // antes de activar automáticamente el desvanecimiento progresivo suave (smooth fade-out)
+    const flightFrames = 38 / signatureConfig.rocketSpeed;
+    const estimatedFlightTimeMs = (flightFrames / 60) * 1000;
+    const WORD_LIFESPAN_MS = 5000;
+
+    this.constellationEndTime = Date.now() + estimatedFlightTimeMs + WORD_LIFESPAN_MS;
+
+    this.wordLifespanTimer = window.setTimeout(() => {
+      this.initiateWordFadeOut();
+    }, estimatedFlightTimeMs + WORD_LIFESPAN_MS);
+  }
+
+  // Lanzamiento directo del Cohete Especial Firma "ALTAIR" (compatibilidad)
+  public triggerAltairSignature() {
+    this.triggerFamilyWord('Altair');
   }
 
   // Golden Rain Starlight Cascade
@@ -1018,6 +1515,11 @@ export class FireworksEngine {
     // Sky Flash
     this.flashes.push(new SkyFlash(x, y, color, 320 * config.explosionForce));
 
+    // Capa de humo grisáceo sutil post-explosión con persistencia volumétrica
+    if (config.cinematicSmoke !== false) {
+      this.emitExplosionSmoke(x, y, config.explosionForce);
+    }
+
     let effectiveType = config.type;
     if (effectiveType === 'random') {
       const pool: FireworkType[] = ['magic_shapes', 'willow', 'double_core', 'crossette', 'chrysanthemum', 'ring'];
@@ -1028,6 +1530,74 @@ export class FireworksEngine {
     const force = config.explosionForce;
 
     switch (effectiveType) {
+      case 'altair_signature': {
+        // Cohete Especial Firma y Nombres Familiares: 'ALTAIR', 'mamá', 'papá', 'abuela', 'abuelo', 'tía', 'Sofi'
+        const currentWord =
+          config.signatureWord ||
+          FAMILY_NAMES[Math.floor(Math.random() * FAMILY_NAMES.length)];
+
+        if (config.soundEnabled) {
+          audioEngine.playFamilyWordSound(currentWord);
+        }
+
+        const rect = this.canvas.getBoundingClientRect();
+        const w = rect.width || window.innerWidth;
+        const letterScale = Math.min(1.0, Math.max(0.65, (w * 0.85) / 540));
+        const pts = getWordLetterPoints(currentWord);
+        const now = Date.now();
+
+        // Inicializar Constelación Estática para exactamente 5 segundos
+        this.constellationParticles = [];
+        this.constellationEndTime = now + 5000;
+        this.isWordFadingOut = false;
+
+        // Temporizador de 5 segundos de ciclo de vida sincronizado con el estallido
+        if (this.wordLifespanTimer !== null) {
+          clearTimeout(this.wordLifespanTimer);
+        }
+        this.wordLifespanTimer = window.setTimeout(() => {
+          this.initiateWordFadeOut();
+        }, 5000);
+
+        for (let i = 0; i < pts.length; i++) {
+          const pt = pts[i];
+          const destX = x + pt.dx * letterScale;
+          const destY = y + pt.dy * letterScale;
+          const isWhite = i % 3 === 0;
+
+          this.constellationParticles.push({
+            x: x + (Math.random() * 16 - 8),
+            y: y + (Math.random() * 16 - 8),
+            destX,
+            destY,
+            color: isWhite ? '#ffffff' : (i % 2 === 0 ? '#ffd700' : '#ffe484'),
+            size: Math.random() * 0.8 + 2.2,
+            alpha: 1.0,
+            phase: Math.random() * Math.PI * 2,
+            twinkleSpeed: Math.random() * 0.08 + 0.04,
+            spawnTime: now,
+          });
+        }
+
+        // 2. Halo de destellos dorados y micro-estrellas centelleantes que enmarcan la firma
+        const haloCount = 28;
+        for (let i = 0; i < haloCount; i++) {
+          const angle = (i / haloCount) * Math.PI * 2;
+          const spd = (Math.random() * 1.6 + 4.0) * force;
+          this.particles.push(
+            new Spark(x, y, Math.cos(angle) * spd, Math.sin(angle) * spd, '#ffea79', {
+              size: 2.0,
+              decay: 0.016,
+              drag: 0.96,
+              gravity: 0.035,
+              hasCrackle: true,
+              flicker: true,
+            })
+          );
+        }
+        break;
+      }
+
       case 'magic_shapes': {
         // Disney Magic Shapes: Star, Heart, or Mickey Silhouette!
         const shapeMode = Math.random();
@@ -1240,24 +1810,31 @@ export class FireworksEngine {
       }
 
       case 'willow': {
-        // Sauce Llorón / Oro Estelar (Kamuro Starlight Gold)
-        const willowColors = config.colorScheme === 'silver' ? ['#ffffff', '#e0f2fe', '#bae6fd'] : ['#ffd13b', '#ffb703', '#fff3b0', '#ffe066'];
-        for (let i = 0; i < count * 1.15; i++) {
+        // Sauce Llorón / Oro Estelar (Kamuro Starlight Gold) con estelas persistentes acumulativas
+        const willowColors =
+          config.colorScheme === 'silver'
+            ? ['#ffffff', '#e0f2fe', '#bae6fd']
+            : ['#ffd13b', '#ffb703', '#fff3b0', '#ffe066', '#ffa200'];
+
+        const willowCount = Math.floor(count * 1.35);
+        for (let i = 0; i < willowCount; i++) {
           const angle = Math.random() * Math.PI * 2;
-          const speed = (Math.random() * 4.6 + 1.2) * force;
+          const speed = (Math.random() * 4.6 + 0.9) * force;
           const vx = Math.cos(angle) * speed;
-          const vy = Math.sin(angle) * speed * 0.72 - 1.2;
+          // Impulso inicial explosivo con caída continua en cascada gravitacional pesada
+          const vy = Math.sin(angle) * speed * 0.7 - 1.6;
           const c = willowColors[Math.floor(Math.random() * willowColors.length)];
 
           this.particles.push(
             new Spark(x, y, vx, vy, c, {
-              size: Math.random() * 2.3 + 1.2,
-              decay: Math.random() * 0.007 + 0.006,
-              drag: 0.955,
-              gravity: 0.068,
-              maxHistory: 8,
+              size: Math.random() * 2.4 + 1.4,
+              decay: Math.random() * 0.0036 + 0.0028, // Larga persistencia (~270-360 frames / ~4.5 a 6.0 segundos)
+              drag: 0.968,
+              gravity: 0.062, // Caída en cascada de sauce llorón suave y fluida
+              maxHistory: 20,
               flicker: true,
-              hasCrackle: true,
+              hasCrackle: Math.random() > 0.35,
+              isWillow: true,
             })
           );
         }
@@ -1334,9 +1911,17 @@ export class FireworksEngine {
     ctx.save();
     ctx.globalCompositeOperation = 'source-over';
 
+    const isDeepNight = this.config.deepNightMode || this.config.skyTheme === 'deep_night';
+
     // 1. Pristine Full Deep night sky gradient
     const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
-    if (this.config.skyTheme === 'twilight') {
+    if (isDeepNight) {
+      // Modo Nocturno Profundo: Negro azabache puro y azul abisal ultra-oscuro para contraste OLED infinito
+      skyGrad.addColorStop(0, '#000002');
+      skyGrad.addColorStop(0.5, '#010207');
+      skyGrad.addColorStop(0.82, '#030510');
+      skyGrad.addColorStop(1, '#050916');
+    } else if (this.config.skyTheme === 'twilight') {
       skyGrad.addColorStop(0, '#0e0820');
       skyGrad.addColorStop(0.55, '#300e3e');
       skyGrad.addColorStop(1, '#691e3a');
@@ -1735,10 +2320,17 @@ export class FireworksEngine {
     ctx.save();
 
     // Dark lagoon base
+    const isDeepNight = this.config.deepNightMode || this.config.skyTheme === 'deep_night';
     const waterGrad = ctx.createLinearGradient(0, waterY, 0, height);
-    waterGrad.addColorStop(0, '#02050d');
-    waterGrad.addColorStop(0.3, '#030814');
-    waterGrad.addColorStop(1, '#010307');
+    if (isDeepNight) {
+      waterGrad.addColorStop(0, '#000104');
+      waterGrad.addColorStop(0.35, '#010207');
+      waterGrad.addColorStop(1, '#000002');
+    } else {
+      waterGrad.addColorStop(0, '#02050d');
+      waterGrad.addColorStop(0.3, '#030814');
+      waterGrad.addColorStop(1, '#010307');
+    }
     ctx.fillStyle = waterGrad;
     ctx.fillRect(0, waterY, width, height - waterY);
 
@@ -1756,6 +2348,17 @@ export class FireworksEngine {
     for (let i = 0; i < this.particles.length; i++) {
       this.particles[i].drawReflection(ctx, waterY);
     }
+
+    // Reflejo acumulativo de la cascada de Sauce Llorón en la superficie de la laguna
+    if (this.willowCanvas && this.willowCanvas.width > 0 && this.willowCanvas.height > 0 && width > 0 && height > 0) {
+      ctx.save();
+      const glowReflect = (this.config.willowGlow ?? 1.25) * 0.26;
+      ctx.globalAlpha = glowReflect;
+      ctx.translate(0, waterY * 1.95);
+      ctx.scale(1, -0.6);
+      ctx.drawImage(this.willowCanvas, 0, 0, width, height);
+      ctx.restore();
+    }
     ctx.restore();
 
     ctx.restore();
@@ -1765,8 +2368,18 @@ export class FireworksEngine {
     if (!this.isRunning) return;
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const width = this.canvas.width / dpr;
-    const height = this.canvas.height / dpr;
+    let width = this.canvas.width / dpr;
+    let height = this.canvas.height / dpr;
+
+    if (width <= 0 || height <= 0 || this.canvas.width <= 0 || this.canvas.height <= 0) {
+      this.resize();
+      width = this.canvas.width / dpr;
+      height = this.canvas.height / dpr;
+      if (width <= 0 || height <= 0 || this.canvas.width <= 0 || this.canvas.height <= 0) {
+        this.animationFrameId = requestAnimationFrame(this.loop);
+        return;
+      }
+    }
 
     // 1. Trail Buffer: Desvanecimiento suave de estelas de pirotecnia con destination-out
     this.trailCtx.save();
@@ -1776,7 +2389,17 @@ export class FireworksEngine {
     this.trailCtx.fillRect(0, 0, width, height);
     this.trailCtx.restore();
 
-    // 2. Renderizar Flashes, Cohetes y Chispas en el buffer de estelas con mezcla aditiva
+    // 2. Buffer Acumulativo de Sauce Llorón (Golden Willow):
+    // Desvanecimiento ultra-lento que permite a las partículas acumular fotones y dejar estelas incandescentes que perduran varios segundos
+    this.willowCtx.save();
+    this.willowCtx.globalCompositeOperation = 'destination-out';
+    const persistence = this.config.willowPersistence ?? 0.985;
+    const willowDecay = Math.max(0.008, Math.min(0.04, 1.0 - persistence));
+    this.willowCtx.fillStyle = `rgba(0, 0, 0, ${willowDecay})`;
+    this.willowCtx.fillRect(0, 0, width, height);
+    this.willowCtx.restore();
+
+    // 3. Renderizar Flashes y Cohetes en el buffer de estelas con mezcla aditiva
     this.trailCtx.save();
     this.trailCtx.globalCompositeOperation = 'lighter';
 
@@ -1798,38 +2421,139 @@ export class FireworksEngine {
         this.rockets.splice(i, 1);
       } else {
         rocket.draw(this.trailCtx);
+        // Estela de humo sutil que sigue al cohete durante su ascenso
+        if (this.config.cinematicSmoke !== false && Math.random() > 0.3) {
+          this.emitRocketSmoke(rocket);
+        }
       }
     }
 
-    // Particles (Sparks) with mobile particle budget clamp
-    if (this.particles.length > 550) {
-      this.particles.splice(0, this.particles.length - 550);
+    // Particles (Sparks) with mobile particle budget clamp (allow up to 800 for rich willow waterfalls)
+    if (this.particles.length > 800) {
+      this.particles.splice(0, this.particles.length - 800);
     }
+
+    const glowMultiplier = this.config.willowGlow ?? 1.25;
+
+    this.willowCtx.save();
+    this.willowCtx.globalCompositeOperation = 'lighter';
 
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const spark = this.particles[i];
       if (!spark.update()) {
         this.particles.splice(i, 1);
       } else {
-        spark.draw(this.trailCtx);
+        if (spark.isWillow) {
+          // Sauce Llorón se estampa incrementalmente en el buffer acumulativo: las estelas se superponen aditivamente
+          spark.drawWillowAccumulative(this.willowCtx, glowMultiplier);
+        } else {
+          // Pirotecnia estándar en el buffer de estelas normales
+          spark.draw(this.trailCtx);
+        }
       }
     }
+    this.willowCtx.restore();
     this.trailCtx.restore();
 
-    // 3. Renderizar Atmósfera Celestial y Cielo Estrellado Parpadeante en el lienzo principal
+    // 4. Renderizar Atmósfera Celestial y Cielo Estrellado Parpadeante en el lienzo principal
     this.drawSkyAtmosphere(this.ctx, width, height);
 
-    // 4. Componer Buffer de Fuegos Artificiales y Estelas sobre el cielo estrellado
-    this.ctx.save();
-    this.ctx.globalCompositeOperation = 'lighter';
-    this.ctx.drawImage(this.trailCanvas, 0, 0, width, height);
-    this.ctx.restore();
+    // 4.5. Capa de Humo Grisáceo Cinemático (detrás de las estelas y chispas de luz)
+    if (this.config.cinematicSmoke !== false) {
+      this.drawSmoke(this.ctx);
+    }
 
-    // 5. Escenario Temático Disney en Primer Plano (Silueta de Castillo / Tomorrowland / Minimal)
+    // 5. Componer Buffer Acumulativo de Sauce Llorón con mezcla aditiva hiper-brillante
+    const isDeepNightMode = this.config.deepNightMode || this.config.skyTheme === 'deep_night';
+
+    if (this.willowCanvas && this.willowCanvas.width > 0 && this.willowCanvas.height > 0 && width > 0 && height > 0) {
+      this.ctx.save();
+      this.ctx.globalCompositeOperation = 'lighter';
+      this.ctx.drawImage(this.willowCanvas, 0, 0, width, height);
+
+      // Pase secundario de resplandor bloom para estelas doradas hiper-brillantes (amplificado en Modo Nocturno Profundo)
+      if (glowMultiplier > 1.15 || isDeepNightMode) {
+        const extraBloom = isDeepNightMode ? 0.32 : 0;
+        this.ctx.globalAlpha = Math.min(0.75, (glowMultiplier - 1.0) * 0.55 + extraBloom);
+        this.ctx.drawImage(this.willowCanvas, 0, 0, width, height);
+      }
+      this.ctx.restore();
+    }
+
+    // 6. Componer Buffer de Fuegos Artificiales y Estelas estándar sobre el cielo estrellado
+    if (this.trailCanvas && this.trailCanvas.width > 0 && this.trailCanvas.height > 0 && width > 0 && height > 0) {
+      this.ctx.save();
+      this.ctx.globalCompositeOperation = 'lighter';
+      this.ctx.drawImage(this.trailCanvas, 0, 0, width, height);
+
+      // Resplandor y luminosidad amplificada de partículas en Modo Nocturno Profundo
+      if (isDeepNightMode) {
+        this.ctx.globalAlpha = 0.32;
+        this.ctx.drawImage(this.trailCanvas, 0, 0, width, height);
+      }
+      this.ctx.restore();
+    }
+
+    // 6.5. Renderizar Constelación de Nombres Familiares directamente en el lienzo principal con luz estelar
+    if (this.constellationParticles.length > 0) {
+      const now = Date.now();
+      const remaining = this.constellationEndTime - now;
+
+      this.ctx.save();
+      this.ctx.globalCompositeOperation = 'lighter';
+
+      for (let i = this.constellationParticles.length - 1; i >= 0; i--) {
+        const p = this.constellationParticles[i];
+        const timeSinceSpawn = now - p.spawnTime;
+
+        if (timeSinceSpawn < 250) {
+          p.x += (p.destX - p.x) * 0.25;
+          p.y += (p.destY - p.y) * 0.25;
+        } else {
+          p.x = p.destX;
+          p.y = p.destY;
+        }
+
+        p.phase += p.twinkleSpeed;
+
+        // Titilar suavemente como una constelación en el cielo durante exactamente 5 segundos
+        if (remaining >= 0 && !this.isWordFadingOut) {
+          p.alpha = 0.85 + Math.sin(p.phase) * 0.15;
+        } else {
+          // Luego desvanecerse progresivamente mediante transición suave
+          p.alpha -= 0.016;
+          if (p.alpha <= 0) {
+            this.constellationParticles.splice(i, 1);
+            continue;
+          }
+        }
+
+        this.ctx.globalAlpha = p.alpha;
+        this.ctx.fillStyle = p.color;
+        this.ctx.beginPath();
+        this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        if (p.color === '#ffffff' && p.alpha > 0.65) {
+          this.ctx.strokeStyle = '#ffffff';
+          this.ctx.lineWidth = 0.75;
+          this.ctx.beginPath();
+          this.ctx.moveTo(p.x - 3.5, p.y);
+          this.ctx.lineTo(p.x + 3.5, p.y);
+          this.ctx.moveTo(p.x, p.y - 3.5);
+          this.ctx.lineTo(p.x, p.y + 3.5);
+          this.ctx.stroke();
+        }
+      }
+
+      this.ctx.restore();
+    }
+
+    // 7. Escenario Temático Disney en Primer Plano (Silueta de Castillo / Tomorrowland / Minimal)
     const waterY = height * 0.82;
     this.drawScenario(this.ctx, width, height, waterY);
 
-    // 6. Superficie del Lago y Reflejos de Partículas
+    // 8. Superficie del Lago y Reflejos de Partículas
     this.drawWaterSurface(this.ctx, width, height, waterY);
 
     // Stats
@@ -1843,11 +2567,90 @@ export class FireworksEngine {
     this.animationFrameId = requestAnimationFrame(this.loop);
   };
 
+  // Emisión de humo sutil a lo largo de la estela de ascenso del cohete
+  private emitRocketSmoke(rocket: Rocket) {
+    const density = this.config.smokeDensity ?? 1.0;
+    const jitterX = Math.random() * 4 - 2;
+    const jitterY = Math.random() * 4 - 2;
+    this.smokeParticles.push(
+      new SmokeParticle(rocket.x + jitterX, rocket.y + jitterY, {
+        vx: rocket.vx * 0.08 + (Math.random() * 0.24 - 0.12),
+        vy: rocket.vy * 0.08 + (Math.random() * -0.16 - 0.04),
+        initialRadius: Math.random() * 2.8 + 2.2,
+        maxRadius: Math.random() * 11 + 9,
+        alpha: (Math.random() * 0.04 + 0.10) * density,
+        decay: Math.random() * 0.0035 + 0.0024,
+      })
+    );
+  }
+
+  // Emisión de nube volumétrica de humo grisáceo sutil post-explosión
+  private emitExplosionSmoke(x: number, y: number, force: number) {
+    const density = this.config.smokeDensity ?? 1.0;
+    const puffCount = Math.floor((Math.random() * 5 + 11) * density);
+    for (let i = 0; i < puffCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = (Math.random() * 1.5 + 0.35) * force;
+      this.smokeParticles.push(
+        new SmokeParticle(
+          x + Math.cos(angle) * (Math.random() * 14 * force),
+          y + Math.sin(angle) * (Math.random() * 14 * force),
+          {
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - (Math.random() * 0.28 + 0.06),
+            initialRadius: (Math.random() * 7 + 8) * force,
+            maxRadius: (Math.random() * 24 + 22) * force,
+            alpha: (Math.random() * 0.05 + 0.14) * density,
+            decay: Math.random() * 0.0026 + 0.0018, // ~4.0 a 6.8 segundos de bruma cinemática
+          }
+        )
+      );
+    }
+  }
+
+  // Renderizar Capa de Humo Grisáceo Cinemático
+  private drawSmoke(ctx: CanvasRenderingContext2D) {
+    if (this.smokeParticles.length === 0) return;
+
+    if (this.smokeParticles.length > 250) {
+      this.smokeParticles.splice(0, this.smokeParticles.length - 250);
+    }
+
+    let ambientFlash = 0;
+    for (let i = 0; i < this.flashes.length; i++) {
+      if (this.flashes[i].alpha > ambientFlash) {
+        ambientFlash = this.flashes[i].alpha;
+      }
+    }
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+
+    for (let i = this.smokeParticles.length - 1; i >= 0; i--) {
+      const smoke = this.smokeParticles[i];
+      if (!smoke.update()) {
+        this.smokeParticles.splice(i, 1);
+      } else {
+        smoke.draw(ctx, ambientFlash);
+      }
+    }
+
+    ctx.restore();
+  }
+
   public destroy() {
     this.stop();
+    if (this.wordLifespanTimer !== null) {
+      clearTimeout(this.wordLifespanTimer);
+      this.wordLifespanTimer = null;
+    }
     if (this.autoShowTimeout) {
       clearTimeout(this.autoShowTimeout);
       this.autoShowTimeout = null;
+    }
+    if (this.dayNightInterval) {
+      clearInterval(this.dayNightInterval);
+      this.dayNightInterval = null;
     }
     if (this.rhythmTimeout) {
       clearTimeout(this.rhythmTimeout);
